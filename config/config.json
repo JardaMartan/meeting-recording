@@ -1,0 +1,9 @@
+{
+  "admin_regex": [
+    "^\\d+@perlovka\\.guru"
+  ],
+  "allowed_user_emails": [
+    "jakub@perlovka.guru"
+  ],
+  "options": {}
+}

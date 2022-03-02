@@ -1,0 +1,43 @@
+version: "2"
+
+networks:
+  recording_net:
+    
+volumes:
+  token-storage:
+
+services: 
+  recording_bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python recording_bot.py -vv
+    container_name: recording_bot
+    ports:
+      - "5443:5050"
+    environment:
+      PYTHONUNBUFFERED: 'true'
+      CURL_CA_BUNDLE: ''
+      LOG_LEVEL: 'DEBUG'
+      # comma separated list of servers, formats:
+      # hostname_or_ip:port/protocol, hostname_or_ip:port, hostname_or_ip
+      REDIRECT_URI: "your_webex_redirect_uri" # default: "https://localhost:5443/manager"
+
+      # syslog facility, values:
+      # CLOCK, CLOCK2, FTP, KERNEL, LOCAL0, LOCAL1, LOCAL2, LOCAL3, LOCAL4, LOCAL5, LOCAL6, LOCAL7,
+      # LOG_ALERT, LOG_AUDIT, MAIL, NETWORK, NTP, PRINTER, SECURITY, SYSLOG, SYSTEM, USER, UUCP
+      SYSLOG_FACILITY: "network"
+      # syslog severity, values:
+      # ALERT, CRITICAL, DEBUG, EMERGENCY, ERROR, INFO, NOTICE, WARNING
+      SYSLOG_SEVERITY: "info"
+      WEBEX_INTEGRATION_ID: "paste_your_integration_id_here"
+      WEBEX_INTEGRATION_CLIENT_ID: "paste_your_integration_client_id_here"
+      WEBEX_INTEGRATION_CLIENT_SECRET: "paste_your_integration_client_secret_here"
+    restart: always
+    networks:
+      - recording_net
+    image: jardamartan/recording_bot
+    volumes:
+      - ./config:/config:z # ":z" avoids permission error in SELinux, see: https://blog.cyplo.dev/posts/2016/12/using-ad-hoc-docker-volumes-on-selinux-enabled-systems/
+      - ./log:/log:z
+      - token-storage:/token_storage/data
