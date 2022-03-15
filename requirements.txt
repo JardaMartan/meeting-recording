@@ -1,8 +1,10 @@
 backoff==1.11.1
 certifi==2021.10.8
+cffi==1.15.0
 charset-normalizer==2.0.12
 click==8.0.4
 coloredlogs==15.0.1
+cryptography==36.0.1
 Flask==2.0.3
 future==0.18.2
 humanfriendly==10.0
@@ -10,7 +12,9 @@ idna==3.3
 itsdangerous==2.1.0
 Jinja2==3.0.3
 MarkupSafe==2.1.0
+pycparser==2.21
 PyJWT==2.3.0
+python-dotenv==0.19.2
 requests==2.27.1
 requests-toolbelt==0.9.1
 urllib3==1.26.8
