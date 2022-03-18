@@ -130,7 +130,7 @@ def authdone():
     ## TODO: post the information & help, maybe an event creation form to the 1-1 space with the user
     return "Thank you for providing the authorization. You may close this browser window."
 
-def access_token(storage_key = None,
+def access_token_obj(storage_key = None,
         token_storage_path = None,
         client_id = os.getenv("WEBEX_INTEGRATION_CLIENT_ID"),
         client_secret = os.getenv("WEBEX_INTEGRATION_CLIENT_SECRET")):
@@ -141,9 +141,21 @@ def access_token(storage_key = None,
         if token_storage_path is None:
             token_storage_path = webex_token_storage_path
         at = AccessTokenAbs(storage_key = storage_key, token_storage_path = token_storage_path, client_id = client_id, client_secret = client_secret)
-        return at.access_token
+        return at
     except Exception as e:
         logger.info(f"Access Token creation exception: {e}")
         
+def access_token(storage_key = None,
+        token_storage_path = None,
+        client_id = os.getenv("WEBEX_INTEGRATION_CLIENT_ID"),
+        client_secret = os.getenv("WEBEX_INTEGRATION_CLIENT_SECRET")):
+
+    at = access_token_obj(storage_key = storage_key,
+        token_storage_path = token_storage_path,
+        client_id = client_id,
+        client_secret = client_secret)
+    if at is not None:
+        return at.access_token
+    
 def show_config():
     logger.info(f"key: {webex_token_key}, path: {webex_token_storage_path}")
