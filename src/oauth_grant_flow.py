@@ -39,7 +39,8 @@ WBX_TEAMS_COMPLIANCE_READ_SCOPE = ["spark-compliance:events_read",
 WBX_MEETINGS_COMPLIANCE_SCOPE = ["spark-compliance:meetings_write"]
 
 WBX_MEETINGS_RECORDING_READ_SCOPE = ["meeting:admin_schedule_read",
-    "meeting:admin_recordings_read"
+    "meeting:admin_recordings_read",
+    "spark:people_read"
 ]
 
 WBX_DEFAULT_SCOPE = ["spark:kms"]
@@ -97,7 +98,11 @@ def redirect_uri():
             webex_integration_client_id = os.getenv("WEBEX_INTEGRATION_CLIENT_ID")
         if webex_integration_secret is None:
             webex_integration_secret = os.getenv("WEBEX_INTEGRATION_CLIENT_SECRET")
-        tokens = AccessTokenAbs(temp_webex_api.access_tokens.get(webex_integration_client_id, webex_integration_secret, input_code, full_redirect_uri).json_data, client_id = webex_integration_client_id, client_secret = webex_integration_secret)
+        tokens = AccessTokenAbs(temp_webex_api.access_tokens.get(webex_integration_client_id, webex_integration_secret, input_code, full_redirect_uri).json_data,
+            storage_key = webex_token_key,
+            token_storage_path = webex_token_storage_path,
+            client_id = webex_integration_client_id, 
+            client_secret = webex_integration_secret)
         logger.debug(f"Access info: {tokens}")
     except ApiError as e:
         logger.error(f"Client Id and Secret loading error: {e}")
@@ -125,13 +130,20 @@ def authdone():
     ## TODO: post the information & help, maybe an event creation form to the 1-1 space with the user
     return "Thank you for providing the authorization. You may close this browser window."
 
-def access_token(storage_key = "default",
-        token_storage_path = "./",
+def access_token(storage_key = None,
+        token_storage_path = None,
         client_id = os.getenv("WEBEX_INTEGRATION_CLIENT_ID"),
         client_secret = os.getenv("WEBEX_INTEGRATION_CLIENT_SECRET")):
 
     try:
+        if storage_key is None:
+            storage_key = webex_token_key
+        if token_storage_path is None:
+            token_storage_path = webex_token_storage_path
         at = AccessTokenAbs(storage_key = storage_key, token_storage_path = token_storage_path, client_id = client_id, client_secret = client_secret)
         return at.access_token
     except Exception as e:
         logger.info(f"Access Token creation exception: {e}")
+        
+def show_config():
+    logger.info(f"key: {webex_token_key}, path: {webex_token_storage_path}")

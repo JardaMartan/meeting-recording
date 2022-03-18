@@ -1,9 +1,10 @@
 {
-  "admin_regex": [
-    "^\\d+@perlovka\\.guru"
+  "approved_domains": [
+    "collab-rocks.cz",
+    "perlovka.guru"
   ],
-  "allowed_user_emails": [
-    "jakub@perlovka.guru"
+  "approved_users": [
+    "jarda@collab-rocks.cz"
   ],
   "options": {}
 }
