@@ -139,12 +139,11 @@ class AccessTokenAbs(AccessToken):
         Returns:
             str: message indicating the result of the operation
         """
-        tokens = get_tokens_for_key(self.storage_key)
         integration_api = WebexTeamsAPI(access_token="12345")
         try:
             self._json_data = integration_api.access_tokens.refresh(self.client_id, self.client_secret, self.refresh_token).json_data
             self._set_tokens_expiration()
-            save_tokens(self.storage_key, new_tokens)
+            self._save_tokens()
             
             self._token_refreshed = True
             logger.info(f"Tokens refreshed for key {self.storage_key}")
