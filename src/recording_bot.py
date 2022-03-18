@@ -434,7 +434,7 @@ if __name__ == "__main__":
     loop.run_until_complete(start_runner())
     
     # Create a Bot Object
-    bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"), approved_users = config.get("approved_users"))
+    bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"), approved_users = config.get("approved_users", []))
 
     # Add new commands for the bot to listen out for.
     bot.add_command(RecordingCommand())
