@@ -37,6 +37,7 @@ oauth.webex_token_key = "recording_bot"
 import threading
 import time
 import json
+import re
 from dateutil import parser as date_parser
 
 import buttons_cards as bc
@@ -193,7 +194,9 @@ class RecordingCommand(Command):
         """
         actor_email = activity["actor"]["emailAddress"]
         try:
-            meeting_num = message.strip().split(" ")[0]
+            meeting_num = message.strip()
+            mn = re.findall(r"^([\d\s]+)", meeting_num)[0]
+            meeting_num = mn.replace(" ", "")
             if len(meeting_num) > 0:
                 response = f"Recording for meeting {meeting_num} will be provided"
                 meeting_id, host_email, response = get_meeting_id(meeting_num, actor_email)
