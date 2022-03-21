@@ -43,9 +43,15 @@ from dateutil import parser as date_parser
 import buttons_cards as bc
 
 from webexteamssdk import WebexTeamsAPI, ApiError
-from webex_bot.commands.echo import Command
+from webexteamssdk.models.cards import Colors, TextBlock, FontWeight, FontSize, Column, AdaptiveCard, ColumnSet, \
+    ImageSize, Image, Fact
+from webexteamssdk.models.cards.actions import Submit, ShowCard
+from webexteamssdk.models.cards.inputs import Text, Number
+from webexteamssdk.models.immutable import AttachmentAction, Message
+from webex_bot.models.command import Command, COMMAND_KEYWORD_KEY
+from webex_bot.models.response import Response, response_from_adaptive_card
+from webex_bot.commands.help import HelpCommand, HELP_COMMAND_KEYWORD
 from webex_bot.webex_bot import WebexBot
-from webex_bot.models.response import Response
 from webex_bot.websockets.webex_websocket_client import DEFAULT_DEVICE_URL
 
 logger = logging.getLogger(__name__)
@@ -135,20 +141,22 @@ def get_recording_urls(recording_details):
 class RecordingCommand(Command):
     
     def __init__(self):
+        logger.debug("Registering \"rec\" command")
         super().__init__(
             command_keyword="rec",
             help_message="Provide meeting number to get its recordings",
             card = None)
 
+    """
     def pre_card_load_reply(self, message, attachment_actions, activity):
-        """
+        ""
         (optional function).
         Reply before sending the initial card.
 
         Useful if it takes a long time for the card to load.
 
         :return: a string or Response object (or a list of either). Use Response if you want to return another card.
-        """
+        ""
 
         response = Response()
         response.text = "This bot requires a client which can render cards."
@@ -161,14 +169,14 @@ class RecordingCommand(Command):
         return [response, "Sit tight! I going to show the echo card soon."]
 
     def pre_execute(self, message, attachment_actions, activity):
-        """
+        ""
         (optionol function).
         Reply before running the execute function.
 
         Useful to indicate the bot is handling it if it is a long running task.
 
         :return: a string or Response object (or a list of either). Use Response if you want to return another card.
-        """
+        ""
         response = Response()
         response.text = "This bot requires a client which can render cards."
         response.attachments = {
@@ -177,6 +185,8 @@ class RecordingCommand(Command):
         }
 
         return response
+    """        
+
     def execute(self, message, attachment_actions, activity):
         """
         If you want to respond to a submit operation on the card, you
@@ -193,8 +203,14 @@ class RecordingCommand(Command):
         :return: a string or Response object. Use Response if you want to return another card.
         """
         actor_email = activity["actor"]["emailAddress"]
+        logger.debug(f"Execute with message: {message}, attachement actions: {attachment_actions}, activity: {activity}")
         try:
-            meeting_num = message.strip()
+            if isinstance(attachment_actions, AttachmentAction):
+                meeting_num = attachment_actions.inputs.get("meeting_number")
+            elif isinstance(attachment_actions, Message):
+                meeting_num = message.strip()
+            else:
+                return "Unknown input from {attachment_actions}"
             mn = re.findall(r"^([\d\s]+)", meeting_num)[0]
             meeting_num = mn.replace(" ", "")
             if len(meeting_num) > 0:
@@ -211,6 +227,76 @@ class RecordingCommand(Command):
             response = "Invalid meeting number"
 
         return response
+        
+class RecordingHelpCommand(HelpCommand):
+    
+    def build_card(self, message, attachment_actions, activity):
+        """
+        Construct a help message for users.
+        :param message: message with command already stripped
+        :param attachment_actions: attachment_actions object
+        :param activity: activity object
+        :return:
+        """
+        heading = TextBlock(self.bot_name, weight=FontWeight.BOLDER, wrap=True, size=FontSize.LARGE)
+        subtitle = TextBlock(self.bot_help_subtitle, wrap=True, size=FontSize.SMALL, color=Colors.LIGHT)
+
+        image = Image(
+            url=self.bot_help_image,
+            size=ImageSize.SMALL)
+
+        header_column = Column(items=[heading, subtitle], width=2)
+        header_image_column = Column(
+            items=[image],
+            width=1,
+        )
+        actions, hint_texts = self.build_actions_and_hints()
+
+        card = AdaptiveCard(
+            body=[ColumnSet(columns=[header_column, header_image_column]),
+                  # ColumnSet(columns=[Column(items=[subtitle])]),
+                  # FactSet(facts=hint_texts),
+                  ],
+            actions=actions)
+
+        return response_from_adaptive_card(adaptive_card=card)
+        
+    def build_actions_and_hints(self):
+        # help_card = HELP_CARD_CONTENT
+        help_actions = []
+        hint_texts = []
+
+        logger.debug("Building actions & hints")
+        if self.commands is not None:
+            # Sort list by keyword
+            sorted_commands_list = sorted(self.commands, key=lambda command: (
+                command.command_keyword is not None, command.command_keyword))
+                
+            logger.debug(f"Sorted commands list: {sorted_commands_list}")
+            for command in sorted_commands_list:
+                if command.help_message and command.command_keyword != HELP_COMMAND_KEYWORD:
+                    logger.debug(f"preparing help for \"{command.command_keyword}\"")
+                    if command.command_keyword == "rec":
+                        rec_input = Text("meeting_number", placeholder="Meeting number")
+                        rec_submit = Submit(title="Submit", data={COMMAND_KEYWORD_KEY: command.command_keyword})
+                        rec_card = AdaptiveCard(
+                            body = [rec_input],
+                            actions = [rec_submit]
+                        )
+                        action = ShowCard(card = rec_card, title = f"{command.help_message}")
+                        logger.debug(f"rec card: {json.dumps(rec_card.to_dict())}")
+                    else:
+                        action = Submit(
+                            title=f"{command.help_message}",
+                            data={COMMAND_KEYWORD_KEY: command.command_keyword}
+                        )
+                    help_actions.append(action)
+
+                    hint = Fact(title=command.command_keyword,
+                                value=command.help_message)
+
+                    hint_texts.append(hint)
+        return help_actions, hint_texts
         
 def get_recording_response(meeting_id, host_email):
     counter = 0
@@ -337,6 +423,10 @@ class WebexBotShare(WebexBot):
             approved_users = approved_users,
             approved_domains = approved_domains,
             device_url = device_url)
+            
+        self.help_command = RecordingHelpCommand(self.bot_display_name, "Click on a button.", self.teams.people.me().avatar)
+        self.commands = {self.help_command}
+        self.help_command.commands = self.commands
     
     def _process_incoming_websocket_message(self, msg):
         """
@@ -437,7 +527,7 @@ if __name__ == "__main__":
     loop.run_until_complete(start_runner())
     
     # Create a Bot Object
-    bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"), approved_users = config.get("approved_users", []))
+    bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"), approved_users = config.get("approved_users", []), approved_domains = config.get("approved_domains", []))
 
     # Add new commands for the bot to listen out for.
     bot.add_command(RecordingCommand())
