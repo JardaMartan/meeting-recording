@@ -1,7 +1,8 @@
 {
   "approved_domains": [
     "collab-rocks.cz",
-    "perlovka.guru"
+    "perlovka.guru",
+    "cisco.com"
   ],
   "approved_users": [
     "jarda@collab-rocks.cz"
