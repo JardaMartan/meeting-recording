@@ -75,7 +75,7 @@ requests.packages.urllib3.disable_warnings()
 
 flask_app.register_blueprint(oauth.webex_oauth, url_prefix = "/webex")
 
-def get_meeting_id(meeting_num, actor_email):
+def get_meeting_id(meeting_num, actor_email, host_email = ""):
     access_token = oauth.access_token()
     if access_token is None:
         return None, None, "No access token available, please authorize the Bot first."
@@ -83,7 +83,7 @@ def get_meeting_id(meeting_num, actor_email):
     webex_api = WebexTeamsAPI(access_token = access_token)
     try:
         try:
-            meeting_info = webex_api._session.get(webex_api._session.base_url+"meetings", {"meetingNumber": meeting_num})
+            meeting_info = webex_api._session.get(webex_api._session.base_url+"meetings", {"meetingNumber": meeting_num, "hostEmail": host_email})
         except ApiError as e:
             res = f"Webex API call exception: {e}."
             logger.error(res)
@@ -91,8 +91,9 @@ def get_meeting_id(meeting_num, actor_email):
 
         if len(meeting_info["items"]) > 0:            
             meeting_series_id = meeting_info["items"][0]["meetingSeriesId"]
+            meeting_host = meeting_info["items"][0]["hostEmail"]
             logger.debug(f"Found meeting series id: {meeting_series_id} for meeting number: {meeting_num}")
-            meeting_list = webex_api._session.get(webex_api._session.base_url+"meetings", {"meetingSeriesId": meeting_series_id, "hostEmail": actor_email, "meetingType": "meeting", "state": "ended"})
+            meeting_list = webex_api._session.get(webex_api._session.base_url+"meetings", {"meetingSeriesId": meeting_series_id, "hostEmail": meeting_host, "meetingType": "meeting", "state": "ended"})
             last_meeting = sorted(meeting_list["items"], key = lambda item: date_parser.parse(item["start"]), reverse=True)[0]
             logger.debug(f"Got last meeting {last_meeting}")
             last_meeting_id = last_meeting["id"]
@@ -104,7 +105,7 @@ def get_meeting_id(meeting_num, actor_email):
     except ApiError as e:
         res = f"Webex API call exception: {e}."
         logger.error(res)
-        return None, None, res
+        return None, None, "Unable or not allowed to get the meeting information."
         
 def get_meeting_details(meeting_id):
     webex_api = WebexTeamsAPI(access_token = oauth.access_token())
@@ -140,12 +141,14 @@ def get_recording_urls(recording_details):
 
 class RecordingCommand(Command):
     
-    def __init__(self):
+    def __init__(self, respond_only_to_host = False):
         logger.debug("Registering \"rec\" command")
         super().__init__(
             command_keyword="rec",
             help_message="Provide meeting number to get its recordings",
             card = None)
+            
+        self.respond_only_to_host = respond_only_to_host
 
     """
     def pre_card_load_reply(self, message, attachment_actions, activity):
@@ -207,19 +210,25 @@ class RecordingCommand(Command):
         try:
             if isinstance(attachment_actions, AttachmentAction):
                 meeting_num = attachment_actions.inputs.get("meeting_number")
+                host_email = attachment_actions.inputs.get("meeting_host", "")
             elif isinstance(attachment_actions, Message):
-                meeting_num = message.strip()
+                meeting_info = message.strip()
+                meeting_num, host_email = re.findall(r"^([\d\s]+)(.*)", meeting_info)[0]
             else:
                 return "Unknown input from {attachment_actions}"
-            mn = re.findall(r"^([\d\s]+)", meeting_num)[0]
-            meeting_num = mn.replace(" ", "")
+            meeting_num = meeting_num.strip().replace(" ", "")
+            host_email = host_email.strip()
             if len(meeting_num) > 0:
-                response = f"Recording for meeting {meeting_num} will be provided"
-                meeting_id, host_email, response = get_meeting_id(meeting_num, actor_email)
+                meeting_id, host_email, response = get_meeting_id(meeting_num, actor_email, host_email = host_email)
                 if meeting_id is not None:
-                    meeting_details = get_meeting_details(meeting_id)
-                    meeting_recordings = get_meeting_recordings(meeting_id, host_email)
-                    response = format_recording_response(meeting_details, meeting_recordings)
+                    if self.respond_only_to_host and actor_email.lower() != host_email.lower():
+                        logger.debug(f"Actor {actor_email} not a host of the meeting {meeting_num}, rejecting request.")
+                        response = Response()
+                        response.markdown = "Only host can request a meeting recording."
+                    else:
+                        meeting_details = get_meeting_details(meeting_id)
+                        meeting_recordings = get_meeting_recordings(meeting_id, host_email)
+                        response = format_recording_response(meeting_details, meeting_recordings)
             else:
                 response = "Please provide a meeting number"
         except Exception as e:
@@ -278,9 +287,12 @@ class RecordingHelpCommand(HelpCommand):
                     logger.debug(f"preparing help for \"{command.command_keyword}\"")
                     if command.command_keyword == "rec":
                         rec_input = Text("meeting_number", placeholder="Meeting number")
+                        rec_column = Column(items = [TextBlock("Meeting number"), rec_input])
+                        rec_host_input = Text("meeting_host", placeholder="user@domain")
+                        host_column = Column(items = [TextBlock("Meeting host (optional)"), rec_host_input])
                         rec_submit = Submit(title="Submit", data={COMMAND_KEYWORD_KEY: command.command_keyword})
                         rec_card = AdaptiveCard(
-                            body = [rec_input],
+                            body = [ColumnSet(columns = [rec_column, host_column])],
                             actions = [rec_submit]
                         )
                         action = ShowCard(card = rec_card, title = f"{command.help_message}")
@@ -414,16 +426,19 @@ class WebexBotShare(WebexBot):
     
     def __init__(self,
         teams_bot_token,
-        approved_users=[],
-        approved_domains=[],
-        device_url=DEFAULT_DEVICE_URL):
+        approved_users = [],
+        approved_domains = [],
+        respond_only_to_host = False,
+        device_url = DEFAULT_DEVICE_URL):
         
         WebexBot.__init__(self,
             teams_bot_token,
             approved_users = approved_users,
             approved_domains = approved_domains,
             device_url = device_url)
-            
+        
+        self.respond_only_to_host = respond_only_to_host    
+        
         self.help_command = RecordingHelpCommand(self.bot_display_name, "Click on a button.", self.teams.people.me().avatar)
         self.commands = {self.help_command}
         self.help_command.commands = self.commands
@@ -458,13 +473,21 @@ class WebexBotShare(WebexBot):
             super()._process_incoming_websocket_message(msg)
             
     def process_recording_share(self, teams_message, activity):
+        actor_email = activity["actor"]["emailAddress"]
         share_object = activity["object"]
         meeting_id = share_object["meetingInstanceId"]
         meeting_details = get_meeting_details(meeting_id)
         host_email = meeting_details["hostEmail"]
         logger.info(f"Recording shared for meeting id {meeting_id} hosted by {host_email}")
-        meeting_recordings = get_meeting_recordings(meeting_id, host_email)
-        reply = format_recording_response(meeting_details, meeting_recordings)
+
+        if self.respond_only_to_host and actor_email.lower() != host_email.lower():
+            logger.debug(f"Actor {actor_email} not a host of the meeting {meeting_id}, rejecting request.")
+            reply = Response()
+            reply.markdown = "Only host can request a meeting recording."
+        else:
+            meeting_recordings = get_meeting_recordings(meeting_id, host_email)
+            reply = format_recording_response(meeting_details, meeting_recordings)
+
         reply = reply.as_dict()
         self.teams.messages.create(roomId = teams_message.roomId, **reply)
                 
@@ -527,10 +550,13 @@ if __name__ == "__main__":
     loop.run_until_complete(start_runner())
     
     # Create a Bot Object
-    bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"), approved_users = config.get("approved_users", []), approved_domains = config.get("approved_domains", []))
+    bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"),
+        approved_users = config.get("approved_users", []),
+        approved_domains = config.get("approved_domains", []),
+        respond_only_to_host = config.get("respond_only_to_host", False))
 
     # Add new commands for the bot to listen out for.
-    bot.add_command(RecordingCommand())
+    bot.add_command(RecordingCommand(respond_only_to_host = bot.respond_only_to_host))
 
     # Call `run` for the bot to wait for incoming messages.
     bot.run()
