@@ -1,0 +1,12 @@
+*** webex_bot/models/response.py.orig	Mon Mar 21 17:07:50 2022
+--- webex_bot/models/response.py	Mon Mar 21 17:09:14 2022
+***************
+*** 3,9 ****
+  from webexteamssdk.models.cards import AdaptiveCard
+  
+  
+- @staticmethod
+  def response_from_adaptive_card(adaptive_card: AdaptiveCard):
+      """
+      Convenience method for generating a Response from an AdaptiveCard.
+--- 3,8 ----
