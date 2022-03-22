@@ -99,3 +99,15 @@ a) Send 1-1 message to the Bot with the text `help`
 b) If the sender matches the **approved_users** or **approved_domains** from [config/config.json](./config/config.json), the Bot responds with the form for entering a meeting number and host email.  
 <img src="./images/form-2.png" width="50%">  
 c) Try getting some recording.
+
+### 10. Update the Bot Code
+This is a work in progress, in order to keep up with the code changes following command sequence is needed:  
+a) Update the Bot code:  
+`git pull`  
+Enter and save commit message or resolve conflicts if asked.  
+b) Shutdown the Bot:  
+`docker-compose down`  
+c) Rebuild the Bot:  
+`docker-compose build`  
+d) Run the Bot:  
+`docker-compose up -d`  
