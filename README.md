@@ -11,7 +11,7 @@ The user can ask the Bot in 1-1 communication for the recordings in following wa
 2. Send `help` message to the Bot and in the received form fill in the meeting number and optionally host email
 3. Send `rec <meeting_num> <host_email>` message to the Bot, host email is optional  
 
-If meeting number is used (options 2 and 3), only the last meeting recording is provided. This is done to simplify the Bot workflow.  
+If a meeting number is used (options 2 and 3), only the last meeting recording is provided. This is done to simplify the Bot workflow.  
 Host email is required in the above communication if the meeting is unlisted (private) or the requestor was not the host of the meeting.  
 Additionally the recording requests can be limited by following [config/config.json](./config/config.json) parameters:
 - **respond_only_to_host** - Bot provides the recording only to the requestor who was the host of the meeting
@@ -24,7 +24,7 @@ In order to access all recordings across the Webex Org, the Bot is using a [Webe
 `meeting:admin_recordings_read`  
 `meeting:admin_preferences_read`  
 `spark:people_read`  
-The Bot works as a user front-end. The Bot uses websockets for its communication, it's based on [Webex Bot](https://pypi.org/project/webex-bot/) by [Finbarr Brady](finbarr.brady@gmail.com). The advantage of this approach is that there is no need for [Webhooks](https://developer.webex.com/docs/webhooks) or any special firewall setup. From the network perspective the Bot works as a Webex App. The Webex API calls are performed via standard HTTPS using [Webex Teams SDK](https://webexteamssdk.readthedocs.io/en/latest/index.html).
+The Bot works as a user front-end. The Bot uses websockets for its communication, it's based on [Webex Bot](https://pypi.org/project/webex-bot/) by [Finbarr Brady](mailto:finbarr.brady@gmail.com). The advantage of this approach is that there is no need for [Webhooks](https://developer.webex.com/docs/webhooks) or any special firewall setup. From the network perspective the Bot works as a Webex App. The Webex API calls are performed via standard HTTPS using [Webex Teams SDK](https://webexteamssdk.readthedocs.io/en/latest/index.html).
 
 ### 1. Space Meeting Forwarding
 Space meeting recording is sent to a Space as a special kind of message which provides integrated playback client.  
@@ -48,29 +48,29 @@ A 1-1 message to the Bot in the format `rec <meeting_num> <host_email>` provides
 The Bot is written in Python and is provided for [Docker Compose](https://docs.docker.com/compose/). Following steps are needed to get it running in a Docker environment.
 
 ### 1. Download from Github
-a) Create a folder where the application will be stored, run `git clone https://github.com/JardaMartan/meeting-recording.git`.
+a) Create a folder where the application will be stored, run `git clone https://github.com/JardaMartan/meeting-recording.git`.  
 b) Open **docker-compose.yml** in a text editor.
 
 ### 2. Create a Bot
-a) Login to https://developer.webex.com
-b) Click on the user's icon in the top right corner and select **My Webex Apps**
-c) Create a **Bot**. Note that Bot's e-mail address has to be unique across all Webex users, so include some org-specific info like `adams.recording.bot@webex.bot`.
+a) Login to https://developer.webex.com  
+b) Click on the user's icon in the top right corner and select **My Webex Apps**  
+c) Create a **Bot**. Note that Bot's e-mail address has to be unique across all Webex users, so include some org-specific info like `adams.recording.bot@webex.bot`.  
 d) Copy **Bot Access Token** and paste it to **docker-compose.yml** to the **BOT_ACCESS_TOKEN** variable (replace `paste_your_bot_access_token` with it).
 
 ### 3. Create an Integration
-a) In **My Webex Apps** create an **Integration**
-b) The important part of the Integration setup is a **Redirect URI**. It is used in OAuth Grant Flow process to receive an authorization code from Webex. If you know a hostname of your Docker server, enter it as a part of the URL, otherwise set it to **https://localhost:5443/webex/redirect**. The Redirect URI can be changed or another one added later.
+a) In **My Webex Apps** create an **Integration**  
+b) The important part of the Integration setup is a **Redirect URI**. It is used in OAuth Grant Flow process to receive an authorization code from Webex. If you know a hostname of your Docker server, enter it as a part of the URL, otherwise set it to **https://localhost:5443/webex/redirect**. The Redirect URI can be changed or another one added later.  
 c) Select (check) the scopes:  
 `meeting:admin_schedule_read`  
 `meeting:admin_recordings_read`  
 `meeting:admin_preferences_read`  
 `spark:people_read`  
-d) Click **Add Integration**
-e) Copy Integration Id, Client Id and Client Secret and paste them to the **WEBEX_INTEGRATION_ID**, **WEBEX_INTEGRATION_CLIENT_ID** and **WEBEX_INTEGRATION_CLIENT_SECRET** variables in **docker-compose.yml**
+d) Click **Add Integration**  
+e) Copy Integration Id, Client Id and Client Secret and paste them to the **WEBEX_INTEGRATION_ID**, **WEBEX_INTEGRATION_CLIENT_ID** and **WEBEX_INTEGRATION_CLIENT_SECRET** variables in **docker-compose.yml**  
 f) Save **docker-compose.yml**
 
 ### 4. Edit the `config/config.json`
-a) set the **approved_users** or **approved_domains**. Bot will only respond to the users who match the lists.
+a) set the **approved_users** or **approved_domains**. Bot will only respond to the users who match the lists.  
 b) set the **respond_only_to_host** and **protect_pmr** parameters. If **respond_only_to_host** is set to `true`, the Bot provides meeting recordings only to meeting host. If **protect_pmr** is set to `true`, the Bot provides PMR recordings only to the PMR owner.
 
 ### 5. Build the Docker Image
@@ -80,14 +80,14 @@ a) Run `docker-compose build` command on the Docker host command line.
 a) Run `docker-compose up` command on the Docker host command line. If you want to run the app permanently, run `docker-compose up -d`.
 
 ### 7. Authorize the Application
-a) In a web browser open the authorization URL, for example: `https://localhost:5443/webex/authorize`
-b) Webex login page will load. Enter admin email address and password.
-c) Confirm the requested Integration scopes.
+a) In a web browser open the authorization URL, for example: `https://localhost:5443/webex/authorize`  
+b) Webex login page will load. Enter admin email address and password.  
+c) Confirm the requested Integration scopes.  
 d) If all goes well, you will end up on a confirmation page:  
 <img src="./images/integration-1.png" width="50%">  
 
 ### 8. Try 1-1 Communication With the Bot
-a) Send 1-1 message to the Bot with the text `help`
+a) Send 1-1 message to the Bot with the text `help`  
 b) If the sender matches the **approved_users** or **approved_domains** from [config/config.json](./config/config.json), the Bot responds with the form for entering a meeting number and host email.  
 <img src="./images/form-2.png" width="50%">  
 c) Try getting some recording.
