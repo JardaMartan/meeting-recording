@@ -138,10 +138,25 @@ def get_recording_urls(recording_details):
     url_list = recording_details.get("temporaryDirectDownloadLinks")
     if url_list:
         return url_list.get("audioDownloadLink"), url_list.get("recordingDownloadLink"), url_list.get("expiration")
+        
+def meeting_is_pmr(meeting_num, host_email):
+    try:
+        webex_api = WebexTeamsAPI(access_token = oauth.access_token())
+        host_preferences = webex_api._session.get(webex_api._session.base_url+"meetingPreferences/personalMeetingRoom", {"userEmail": host_email})
+        logger.debug(f"Preferences for the meeting host {host_email} / {meeting_num}: {host_preferences}")
+        pref_telephony = host_preferences.get("telephony")
+        if pref_telephony:
+            pmr_num = pref_telephony.get("accessCode")
+            logger.debug(f"Found PMR {pmr_num} for {host_email}")
+            return pmr_num == meeting_num
+            
+    except ApiError as e:
+        logger.error(f"Webex API call exception: {e}.")
+
 
 class RecordingCommand(Command):
     
-    def __init__(self, respond_only_to_host = False):
+    def __init__(self, respond_only_to_host = False, protect_pmr = True):
         logger.debug("Registering \"rec\" command")
         super().__init__(
             command_keyword="rec",
@@ -149,6 +164,7 @@ class RecordingCommand(Command):
             card = None)
             
         self.respond_only_to_host = respond_only_to_host
+        self.protect_pmr = protect_pmr
 
     """
     def pre_card_load_reply(self, message, attachment_actions, activity):
@@ -219,6 +235,13 @@ class RecordingCommand(Command):
             meeting_num = meeting_num.strip().replace(" ", "")
             host_email = host_email.strip()
             if len(meeting_num) > 0:
+                temp_host_email = host_email if host_email else actor_email
+                if self.protect_pmr and meeting_is_pmr(meeting_num, temp_host_email):
+                    if  actor_email.lower() != temp_host_email.lower():
+                        response = Response()
+                        response.markdown = "Only owner can request a PMR meeting recording."
+                        return response
+                        
                 meeting_id, host_email, response = get_meeting_id(meeting_num, actor_email, host_email = host_email)
                 if meeting_id is not None:
                     if self.respond_only_to_host and actor_email.lower() != host_email.lower():
@@ -429,6 +452,7 @@ class WebexBotShare(WebexBot):
         approved_users = [],
         approved_domains = [],
         respond_only_to_host = False,
+        protect_pmr = True,
         device_url = DEFAULT_DEVICE_URL):
         
         WebexBot.__init__(self,
@@ -437,7 +461,8 @@ class WebexBotShare(WebexBot):
             approved_domains = approved_domains,
             device_url = device_url)
         
-        self.respond_only_to_host = respond_only_to_host    
+        self.respond_only_to_host = respond_only_to_host
+        self.protect_pmr = protect_pmr  
         
         self.help_command = RecordingHelpCommand(self.bot_display_name, "Click on a button.", self.teams.people.me().avatar)
         self.commands = {self.help_command}
@@ -553,10 +578,11 @@ if __name__ == "__main__":
     bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"),
         approved_users = config.get("approved_users", []),
         approved_domains = config.get("approved_domains", []),
-        respond_only_to_host = config.get("respond_only_to_host", False))
+        respond_only_to_host = config.get("respond_only_to_host", False),
+        protect_pmr = config.get("protect_pmr", True))
 
     # Add new commands for the bot to listen out for.
-    bot.add_command(RecordingCommand(respond_only_to_host = bot.respond_only_to_host))
+    bot.add_command(RecordingCommand(respond_only_to_host = bot.respond_only_to_host, protect_pmr = bot.protect_pmr))
 
     # Call `run` for the bot to wait for incoming messages.
     bot.run()
