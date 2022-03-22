@@ -11,6 +11,7 @@ The user can ask the Bot in 1-1 communication for the recordings in following wa
 2. Send `help` message to the Bot and in the received form fill in the meeting number and optionally host email
 3. Send `rec <meeting_num> <host_email>` message to the Bot. Host email is optional.  
 
+~~~
 If a meeting number is used (options 2 and 3), only the last meeting recording is provided. This is done to simplify the Bot workflow.  
 Host email is required in the above communication, if the meeting is unlisted (private) or the requestor was not the host of the meeting.  
 Additionally the recording requests can be limited by following [config/config.json](./config/config.json) parameters:
@@ -18,6 +19,7 @@ Additionally the recording requests can be limited by following [config/config.j
 - **protect_pmr** - if the recording was created in a PMR, the Bot provides the recording only to the PMR owner. So even if the requestor provides the correct host email (and the respond_only_to_host is set to **false**), the request is refused unless the requestor is the PMR owner.
 - **approved_users** - only users from the list can communicate with the Bot
 - **approved_domains** - only users whose email addresses domains are in the domain list can communicate with the Bot
+~~~
 
 In order to access all recordings across the Webex Org, the Bot is using a [Webex Integration](https://developer.webex.com/docs/integrations) in the backend. The integration needs to be authorized by Webex admin and it uses following scopes to access the recording and user information:  
 `meeting:admin_schedule_read`  
