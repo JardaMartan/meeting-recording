@@ -9,13 +9,13 @@ The links for download are temporary links (valid for 4 hours) provided by Webex
 The user can ask the Bot in 1-1 communication for the recordings in following ways:
 1. Forward a Space meeting recording from a Space communication to the Bot
 2. Send `help` message to the Bot and in the received form fill in the meeting number and optionally host email
-3. Send `rec <meeting_num> <host_email>` message to the Bot, host email is optional  
+3. Send `rec <meeting_num> <host_email>` message to the Bot. Host email is optional.  
 
 If a meeting number is used (options 2 and 3), only the last meeting recording is provided. This is done to simplify the Bot workflow.  
-Host email is required in the above communication if the meeting is unlisted (private) or the requestor was not the host of the meeting.  
+Host email is required in the above communication, if the meeting is unlisted (private) or the requestor was not the host of the meeting.  
 Additionally the recording requests can be limited by following [config/config.json](./config/config.json) parameters:
 - **respond_only_to_host** - Bot provides the recording only to the requestor who was the host of the meeting
-- **protect_pmr** - if the recording was created in a PMR, the Bot provides the recording only to the PMR owner. So even if the requestor provides the correct host email, the request is refused unless the requestor is the PMR owner.
+- **protect_pmr** - if the recording was created in a PMR, the Bot provides the recording only to the PMR owner. So even if the requestor provides the correct host email (and the respond_only_to_host is set to **false**), the request is refused unless the requestor is the PMR owner.
 - **approved_users** - only users from the list can communicate with the Bot
 - **approved_domains** - only users whose email addresses domains are in the domain list can communicate with the Bot
 
@@ -27,7 +27,7 @@ In order to access all recordings across the Webex Org, the Bot is using a [Webe
 The Bot works as a user front-end. The Bot uses websockets for its communication, it's based on [Webex Bot](https://pypi.org/project/webex-bot/) by [Finbarr Brady](mailto:finbarr.brady@gmail.com). The advantage of this approach is that there is no need for [Webhooks](https://developer.webex.com/docs/webhooks) or any special firewall setup. From the network perspective the Bot works as a Webex App. The Webex API calls are performed via standard HTTPS using [Webex Teams SDK](https://webexteamssdk.readthedocs.io/en/latest/index.html).
 
 ### 1. Space Meeting Forwarding
-Space meeting recording is sent to a Space as a special kind of message which provides integrated playback client.  
+Space meeting recording is sent to a Space as a special kind of message which provides an integrated playback client.  
 <img src="./images/space_meeting_1.png" width="50%">  
 The recording can be forwarded by clicking on a **Forward** icon.  
 <img src="./images/space_meeting_2.png" width="50%">  
@@ -48,14 +48,15 @@ A 1-1 message to the Bot in the format `rec <meeting_num> <host_email>` provides
 The Bot is written in Python and is provided for [Docker Compose](https://docs.docker.com/compose/). Following steps are needed to get it running in a Docker environment.
 
 ### 1. Download from Github
-a) Create a folder where the application will be stored, run `git clone https://github.com/JardaMartan/meeting-recording.git`.  
+a) Create a folder where the application will be stored, run  
+`git clone https://github.com/JardaMartan/meeting-recording.git`.  
 b) Open **docker-compose.yml** in a text editor.
 
 ### 2. Create a Bot
 a) Login to https://developer.webex.com  
 b) Click on the user's icon in the top right corner and select **My Webex Apps**  
 c) Create a **Bot**. Note that Bot's e-mail address has to be unique across all Webex users, so include some org-specific info like `adams.recording.bot@webex.bot`.  
-d) Copy **Bot Access Token** and paste it to **docker-compose.yml** to the **BOT_ACCESS_TOKEN** variable (replace `paste_your_bot_access_token` with it).
+d) Copy **Bot Access Token** and paste it to the **docker-compose.yml** to the **BOT_ACCESS_TOKEN** variable (replace `paste_your_bot_access_token` with it).
 
 ### 3. Create an Integration
 a) In **My Webex Apps** create an **Integration**  
@@ -66,7 +67,7 @@ c) Select (check) the scopes:
 `meeting:admin_preferences_read`  
 `spark:people_read`  
 d) Click **Add Integration**  
-e) Copy Integration Id, Client Id and Client Secret and paste them to the **WEBEX_INTEGRATION_ID**, **WEBEX_INTEGRATION_CLIENT_ID** and **WEBEX_INTEGRATION_CLIENT_SECRET** variables in **docker-compose.yml**  
+e) Copy **Client ID* , **Client Secret** and **Integration ID** and paste them to the **WEBEX_INTEGRATION_CLIENT_ID**, **WEBEX_INTEGRATION_CLIENT_SECRET** and **WEBEX_INTEGRATION_ID** variables in **docker-compose.yml**  
 f) Save **docker-compose.yml**
 
 ### 4. Edit the `config/config.json`
