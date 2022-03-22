@@ -16,6 +16,12 @@ Host email is required in the above communication if the meeting is unlisted (pr
 - **approved_users** - only users from the list can communicate with the Bot
 - **approved_domains** - only users whose email addresses domains are in the domain list can communicate with the Bot
 
+In order to get access to all recordings across the Webex Org, the Bot is using a [Webex Integration](https://developer.webex.com/docs/integrations) in the backend. The integration needs to be authorized by Webex admin and it uses following scopes to access the recording and user information:  
+`meeting:admin_schedule_read`  
+`meeting:admin_recordings_read`  
+`meeting:admin_preferences_read`  
+`spark:people_read`  
+
 ### 1. Space Meeting Forwarding
 Space meeting recording is sent to a Space as a special kind of message which provides integrated playback client.  
 <img src="./images/space_meeting_1.png" width="50%">  
@@ -33,3 +39,6 @@ As a response to `help` message, the Bot sends a [Buttons & Cards](https://devel
 ### 3. Sending a `rec` Message
 A 1-1 message to the Bot in the format `rec <meeting_num> <host_email>` provides the recording.  
 <img src="./images/message-1.png" width="50%">  
+
+## How to Install
+The Bot written in Python is provided for [Docker Compose](https://docs.docker.com/compose/)
