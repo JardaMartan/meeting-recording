@@ -74,7 +74,7 @@ f) Save **docker-compose.yml**
 
 ### 4. Edit the `config/config.json`
 a) set the **approved_users** and/or **approved_domains**. Bot will only respond to the users who match the lists.  
-b) set the **respond_only_to_host** and **protect_pmr** parameters. If **respond_only_to_host** is set to `true`, the Bot provides meeting recordings only to the meeting host. If **protect_pmr** is set to `true`, the Bot provides PMR recordings only to the PMR owner.
+b) set the **respond_only_to_host** and **protect_pmr** parameters. If **respond_only_to_host** is set to `true`, the Bot provides meeting recordings only to the meeting host. If **protect_pmr** is set to `true`, the Bot provides PMR recordings only to the PMR owner even if the **respond_only_to_host** is set to `false`.
 
 ### 5. Don't Forget to Commit the Configuration Changes
 After changing **docker-compose.yml**, **config.json** or any part of the Bot code, run  
