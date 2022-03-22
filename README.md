@@ -24,7 +24,7 @@ In order to access all recordings across the Webex Org, the Bot is using a [Webe
 `meeting:admin_preferences_read`  
 `meeting:admin_recordings_read`  
 `spark:people_read`  
-The Bot works as a user front-end. The Bot uses websockets for its communication, it's based on [Webex Bot](https://pypi.org/project/webex-bot/) by [Finbarr Brady](mailto:finbarr.brady@gmail.com). The advantage of this approach is that there is no need for [Webhooks](https://developer.webex.com/docs/webhooks) or any special firewall setup. From the network perspective the Bot works as a Webex App. The Webex API calls are performed via standard HTTPS using [Webex Teams SDK](https://webexteamssdk.readthedocs.io/en/latest/index.html).
+The Bot works as a user front-end. The Bot uses websockets for its communication and is based on [Webex Bot](https://pypi.org/project/webex-bot/) by [Finbarr Brady](mailto:finbarr.brady@gmail.com). The advantage of this approach is that there is no need for [Webhooks](https://developer.webex.com/docs/webhooks) or any special firewall setup. From the network perspective the Bot works as a Webex App. The Webex API calls are performed via standard HTTPS using [Webex Teams SDK](https://webexteamssdk.readthedocs.io/en/latest/index.html).
 
 ### 1. Space Meeting Forwarding
 Space meeting recording is sent to a Space as a special kind of message which provides an integrated playback client.  
