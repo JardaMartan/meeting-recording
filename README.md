@@ -69,7 +69,7 @@ c) Select (check) the scopes:
 `spark:people_read`  
 <img src="./images/scope-1.png" width="50%">  
 d) Click **Add Integration**  
-e) Copy **Client ID* , **Client Secret** and **Integration ID** and paste them to the **WEBEX_INTEGRATION_CLIENT_ID**, **WEBEX_INTEGRATION_CLIENT_SECRET** and **WEBEX_INTEGRATION_ID** variables in **docker-compose.yml**  
+e) Copy **Client ID** , **Client Secret** and **Integration ID** and paste them to the **WEBEX_INTEGRATION_CLIENT_ID**, **WEBEX_INTEGRATION_CLIENT_SECRET** and **WEBEX_INTEGRATION_ID** variables in **docker-compose.yml**  
 f) Save **docker-compose.yml**
 
 ### 4. Edit the `config/config.json`
