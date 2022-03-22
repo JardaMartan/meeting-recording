@@ -8,5 +8,6 @@
     "jarda@collab-rocks.cz"
   ],
   "respond_only_to_host": false,
+  "protect_pmr": true,
   "options": {}
 }
