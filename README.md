@@ -18,13 +18,13 @@ Host email is required in the above communication if the meeting is unlisted (pr
 
 ### 1. Space Meeting Forwarding
 Space meeting recording is sent to a Space as a special kind of message which provides integrated playback client.
-<img src="./images/space_meeting-1.png" width="50%">  
+<img src="./images/space_meeting_1.png" width="50%">  
 The recording can be forwarded by clicking on a **Forward** icon.
-<img src="./images/space_meeting-2.png" width="50%">  
+<img src="./images/space_meeting_2.png" width="50%">  
 The user can fill in the list of recipients or create a Space.
-<img src="./images/space_meeting-3.png" width="50%">  
+<img src="./images/space_meeting_3.png" width="50%">  
 Each recipient can receive the meeting only once. If you want to repeat the forwarding to the same recipient, you need to first delete the forwarded recording from your 1-1 communication with the recipient and then try forwarding it again.
-<img src="./images/space_meeting-4.png" width="50%">  
+<img src="./images/space_meeting_4.png" width="50%">  
 
 ### 2. Using a Form
 As a response to `help` message, the Bot sends a [Buttons & Cards](https://developer.webex.com/docs/buttons-and-cards) form in which the requestor can fill in the meeting number and optionally host email.
