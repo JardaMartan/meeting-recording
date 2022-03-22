@@ -9,7 +9,7 @@ The links for download are temporary links (valid for 4 hours) provided by Webex
 The user can ask the Bot in 1-1 communication for the recordings in following ways:
 1. Forward a Space meeting recording from a Space communication to the Bot
 2. Send `help` message to the Bot and in the received form fill in the meeting number and optionally host email
-3. Send `rec <meeting_num> <host_email>` message to the Bot, host email is optional
+3. Send `rec <meeting_num> <host_email>` message to the Bot, host email is optional  
 If meeting number is used (options 2 and 3), only the last meeting recording is provided. This is done to simplify the Bot workflow.  
 Host email is required in the above communication if the meeting is unlisted (private) or the requestor was not the host of the meeting. Additionally the recording requests can be limited by following [config/config.json](./config/config.json) parameters:
 - **respond_only_to_host** - Bot provides the recording only to the requestor who was the host of the meeting
