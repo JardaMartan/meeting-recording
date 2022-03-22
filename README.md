@@ -76,20 +76,25 @@ f) Save **docker-compose.yml**
 a) set the **approved_users** or **approved_domains**. Bot will only respond to the users who match the lists.  
 b) set the **respond_only_to_host** and **protect_pmr** parameters. If **respond_only_to_host** is set to `true`, the Bot provides meeting recordings only to the meeting host. If **protect_pmr** is set to `true`, the Bot provides PMR recordings only to the PMR owner.
 
-### 5. Build the Docker Image
+### 5. Don't Forget to Commit the Configuration Changes
+After changing **docker-compose.yml**, **config.json** or any part of the Bot code, run  
+`git commit -a -m "config update"`
+This will reduce conflicts when doing a Bot code update from Github using `git pull`.
+
+### 6. Build the Docker Image
 a) Run `docker-compose build` command on the Docker host command line.
 
-### 6. Start the Application
+### 7. Start the Application
 a) Run `docker-compose up` command on the Docker host command line. If you want to run the app permanently, run `docker-compose up -d`.
 
-### 7. Authorize the Application
+### 8. Authorize the Application
 a) In a web browser open the authorization URL, for example: `https://localhost:5443/webex/authorize`  
 b) Webex login page will load. Enter admin email address and password.  
 c) Confirm the requested Integration scopes.  
 d) If all goes well, you will end up on a confirmation page:  
 <img src="./images/integration-1.png" width="50%">  
 
-### 8. Try 1-1 Communication With the Bot
+### 9. Try 1-1 Communication With the Bot
 a) Send 1-1 message to the Bot with the text `help`  
 b) If the sender matches the **approved_users** or **approved_domains** from [config/config.json](./config/config.json), the Bot responds with the form for entering a meeting number and host email.  
 <img src="./images/form-2.png" width="50%">  
