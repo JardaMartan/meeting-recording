@@ -63,10 +63,11 @@ d) Copy **Bot Access Token** and paste it to the **docker-compose.yml** to the *
 a) In **My Webex Apps** create an **Integration**  
 b) The important part of the Integration setup is a **Redirect URI**. It is used in OAuth Grant Flow process to receive an authorization code from Webex. If you know a hostname of your Docker server, enter it as a part of the URL, otherwise set it to **https://localhost:5443/webex/redirect**. The Redirect URI can be changed or another one added later.  
 c) Select (check) the scopes:  
-[X]`meeting:admin_schedule_read`  
-[X]`meeting:admin_recordings_read`  
-[X]`meeting:admin_preferences_read`  
-[X]`spark:people_read`  
+`meeting:admin_schedule_read`  
+`meeting:admin_recordings_read`  
+`meeting:admin_preferences_read`  
+`spark:people_read`  
+<img src="./images/scope-1.png" width="50%">  
 d) Click **Add Integration**  
 e) Copy **Client ID* , **Client Secret** and **Integration ID** and paste them to the **WEBEX_INTEGRATION_CLIENT_ID**, **WEBEX_INTEGRATION_CLIENT_SECRET** and **WEBEX_INTEGRATION_ID** variables in **docker-compose.yml**  
 f) Save **docker-compose.yml**
