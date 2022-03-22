@@ -78,7 +78,7 @@ b) set the **respond_only_to_host** and **protect_pmr** parameters. If **respond
 
 ### 5. Don't Forget to Commit the Configuration Changes
 After changing **docker-compose.yml**, **config.json** or any part of the Bot code, run  
-`git commit -a -m "config update"`
+`git commit -a -m "config update"`  
 This will reduce conflicts when doing a Bot code update from Github using `git pull`.
 
 ### 6. Build the Docker Image
