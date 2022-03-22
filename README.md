@@ -1,6 +1,6 @@
 # Webex Recording Download Bot
 
-Webex meeting recordings are normally available for download only to meeting hosts and only using a web browser. Host needs to access the webex site's web page and find the recordings there. This Bot provides a capability to download recordings from a Webex meeting (both Classic and Space meetings) by just sending it a meeting number and host email or by forwarding it a Space recording message.
+Webex meeting recordings are normally available for download only to meeting hosts and only using a web browser. Host needs to access the webex site's web page and find the recordings there. This Bot provides a capability to download recordings of a Webex meeting (both Classic and Space meetings) by just sending it a meeting number and host email or by forwarding it a Space recording message.
 <img src="./images/rec-1.png" width="50%">  
 The links for download are temporary links (valid for 4 hours) provided by Webex [Meetings](https://developer.webex.com/docs/api/v1/meetings) and [Recordings](https://developer.webex.com/docs/api/v1/recordings) APIs. The Bot neither downloads the recordings nor it stores any meeting or recording information.
 
@@ -71,7 +71,7 @@ f) Save **docker-compose.yml**
 
 ### 4. Edit the `config/config.json`
 a) set the **approved_users** or **approved_domains**. Bot will only respond to the users who match the lists.  
-b) set the **respond_only_to_host** and **protect_pmr** parameters. If **respond_only_to_host** is set to `true`, the Bot provides meeting recordings only to meeting host. If **protect_pmr** is set to `true`, the Bot provides PMR recordings only to the PMR owner.
+b) set the **respond_only_to_host** and **protect_pmr** parameters. If **respond_only_to_host** is set to `true`, the Bot provides meeting recordings only to the meeting host. If **protect_pmr** is set to `true`, the Bot provides PMR recordings only to the PMR owner.
 
 ### 5. Build the Docker Image
 a) Run `docker-compose build` command on the Docker host command line.
