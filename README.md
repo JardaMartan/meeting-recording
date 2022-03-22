@@ -10,8 +10,10 @@ The user can ask the Bot in 1-1 communication for the recordings in following wa
 1. Forward a Space meeting recording from a Space communication to the Bot
 2. Send `help` message to the Bot and in the received form fill in the meeting number and optionally host email
 3. Send `rec <meeting_num> <host_email>` message to the Bot, host email is optional  
+
 If meeting number is used (options 2 and 3), only the last meeting recording is provided. This is done to simplify the Bot workflow.  
-Host email is required in the above communication if the meeting is unlisted (private) or the requestor was not the host of the meeting. Additionally the recording requests can be limited by following [config/config.json](./config/config.json) parameters:
+Host email is required in the above communication if the meeting is unlisted (private) or the requestor was not the host of the meeting.  
+Additionally the recording requests can be limited by following [config/config.json](./config/config.json) parameters:
 - **respond_only_to_host** - Bot provides the recording only to the requestor who was the host of the meeting
 - **protect_pmr** - if the recording was created in a PMR, the Bot provides the recording only to the PMR owner. So even if the requestor provides the correct host email, the request is refused unless the requestor is the PMR owner.
 - **approved_users** - only users from the list can communicate with the Bot
