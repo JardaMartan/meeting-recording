@@ -39,6 +39,7 @@ import time
 import json
 import re
 from dateutil import parser as date_parser
+from datetime import datetime, timedelta
 
 import buttons_cards as bc
 
@@ -53,6 +54,8 @@ from webex_bot.models.response import Response, response_from_adaptive_card
 from webex_bot.commands.help import HelpCommand, HELP_COMMAND_KEYWORD
 from webex_bot.webex_bot import WebexBot
 from webex_bot.websockets.webex_websocket_client import DEFAULT_DEVICE_URL
+
+MEETING_REC_RANGE = 10 # days to look back for meetings
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -75,42 +78,63 @@ requests.packages.urllib3.disable_warnings()
 
 flask_app.register_blueprint(oauth.webex_oauth, url_prefix = "/webex")
 
-def get_meeting_id(meeting_num, actor_email, host_email = ""):
+def get_last_meeting_id(meeting_num, actor_email, host_email = "", days_back_range = MEETING_REC_RANGE):
+    meeting_id_list, msg = get_meeting_id_list(meeting_num, actor_email, host_email = host_email, days_back_range = days_back_range)
+    if meeting_id_list is None:
+        return None, None, msg
+        
+    if len(meeting_id_list) > 0:
+        last_meeting = sorted(meeting_id_list, key = lambda item: date_parser.parse(item["start"]), reverse=True)[0]
+        logger.debug(f"Got last meeting {last_meeting}")
+        last_meeting_id = last_meeting["id"]
+        last_meeting_host_email = last_meeting["hostEmail"]
+        
+        return last_meeting_id, last_meeting_host_email, f"Last meeting id for {meeting_num} is {last_meeting_id}."
+    else:
+        return None, None, "Meeting not found"
+        
+def get_meeting_id_list(meeting_num, actor_email, host_email = "", days_back_range = MEETING_REC_RANGE):
     access_token = oauth.access_token()
     if access_token is None:
         return None, None, "No access token available, please authorize the Bot first."
         
     webex_api = WebexTeamsAPI(access_token = access_token)
+    to_time = datetime.utcnow()
+    from_time = to_time - timedelta(days = days_back_range) # how long to look back
+    from_stamp = from_time.isoformat(timespec="milliseconds")+"Z"
+    to_stamp = to_time.isoformat(timespec="milliseconds")+"Z"
+
     try:
         try:
-            meeting_info = webex_api._session.get(webex_api._session.base_url+"meetings", {"meetingNumber": meeting_num, "hostEmail": host_email})
+            meeting_info = webex_api._session.get(webex_api._session.base_url+"meetings", {"meetingNumber": meeting_num, "hostEmail": host_email, "from": from_stamp, "to": to_stamp})
         except ApiError as e:
             res = f"Webex API call exception: {e}."
             logger.error(res)
-            meeting_info = webex_api._session.get(webex_api._session.base_url+"meetings", {"meetingNumber": meeting_num, "hostEmail": actor_email})
+            meeting_info = webex_api._session.get(webex_api._session.base_url+"meetings", {"meetingNumber": meeting_num, "hostEmail": actor_email, "from": from_stamp, "to": to_stamp})
 
         if len(meeting_info["items"]) > 0:            
             meeting_series_id = meeting_info["items"][0]["meetingSeriesId"]
             meeting_host = meeting_info["items"][0]["hostEmail"]
             logger.debug(f"Found meeting series id: {meeting_series_id} for meeting number: {meeting_num}")
-            meeting_list = webex_api._session.get(webex_api._session.base_url+"meetings", {"meetingSeriesId": meeting_series_id, "hostEmail": meeting_host, "meetingType": "meeting", "state": "ended"})
-            last_meeting = sorted(meeting_list["items"], key = lambda item: date_parser.parse(item["start"]), reverse=True)[0]
-            logger.debug(f"Got last meeting {last_meeting}")
-            last_meeting_id = last_meeting["id"]
-            last_meeting_host_email = last_meeting["hostEmail"]
+            meeting_list = webex_api._session.get(webex_api._session.base_url+"meetings", {"meetingSeriesId": meeting_series_id, "hostEmail": meeting_host, "meetingType": "meeting", "state": "ended", "from": from_stamp, "to": to_stamp})
+            meeting_list = sorted(meeting_list["items"], key = lambda item: date_parser.parse(item["start"]))
+            logger.debug(f"Got meetings: {meeting_list}")
             
-            return last_meeting_id, last_meeting_host_email, f"Last meeting id for {meeting_num} is {last_meeting_id}."
+            return meeting_list, f"{len(meeting_list)} meetings found"
         else:
-            return None, None, "Meeting not found."
+            return None, "Meeting not found"
     except ApiError as e:
         res = f"Webex API call exception: {e}."
         logger.error(res)
-        return None, None, "Unable or not allowed to get the meeting information."
+        return None, "Unable or not allowed to get the meeting information."
         
-def get_meeting_details(meeting_id):
+def get_meeting_details(meeting_id, host_email = None):
     webex_api = WebexTeamsAPI(access_token = oauth.access_token())
     try:
-        meeting_details = webex_api._session.get(webex_api._session.base_url + f"meetings/{meeting_id}")
+        params = {}
+        if host_email is not None:
+            params = {"hostEmail": host_email}
+        meeting_details = webex_api._session.get(webex_api._session.base_url + f"meetings/{meeting_id}", params)
         logger.debug(f"Meeting details for {meeting_id}: {meeting_details}")
         return meeting_details
     except ApiError as e:
@@ -227,13 +251,17 @@ class RecordingCommand(Command):
             if isinstance(attachment_actions, AttachmentAction):
                 meeting_num = attachment_actions.inputs.get("meeting_number")
                 host_email = attachment_actions.inputs.get("meeting_host", "")
+                days_back = attachment_actions.inputs.get("days_back", MEETING_REC_RANGE)
             elif isinstance(attachment_actions, Message):
                 meeting_info = message.strip()
-                meeting_num, host_email = re.findall(r"^([\d\s]+)(.*)", meeting_info)[0]
+                meeting_num, host_email, days_back = re.findall(r"^([\d\s]+) (.*) (.*)", meeting_info)[0]
             else:
                 return "Unknown input from {attachment_actions}"
             meeting_num = meeting_num.strip().replace(" ", "")
             host_email = host_email.strip()
+            if not days_back:
+                days_back = MEETING_REC_RANGE
+            days_back = int(days_back)
             if len(meeting_num) > 0:
                 temp_host_email = host_email if host_email else actor_email
                 if self.protect_pmr and meeting_is_pmr(meeting_num, temp_host_email):
@@ -242,7 +270,8 @@ class RecordingCommand(Command):
                         response.markdown = "Only owner can request a PMR meeting recording."
                         return response
                         
-                meeting_id, host_email, response = get_meeting_id(meeting_num, actor_email, host_email = host_email)
+                """
+                meeting_id, host_email, response = get_last_meeting_id(meeting_num, actor_email, host_email = host_email)
                 if meeting_id is not None:
                     if self.respond_only_to_host and actor_email.lower() != host_email.lower():
                         logger.debug(f"Actor {actor_email} not a host of the meeting {meeting_num}, rejecting request.")
@@ -252,6 +281,26 @@ class RecordingCommand(Command):
                         meeting_details = get_meeting_details(meeting_id)
                         meeting_recordings = get_meeting_recordings(meeting_id, host_email)
                         response = format_recording_response(meeting_details, meeting_recordings)
+                """
+                
+                meeting_list, msg = get_meeting_id_list(meeting_num, actor_email, host_email = host_email, days_back_range = days_back)
+                if meeting_list is not None and len(meeting_list) > 0:
+                    if self.respond_only_to_host and actor_email.lower() != host_email.lower():
+                        logger.debug(f"Actor {actor_email} not a host of the meeting {meeting_num}, rejecting request.")
+                        response = Response()
+                        response.markdown = "Only host can request a meeting recording."
+                    else:
+                        meeting_recordings = []
+                        for meeting in meeting_list:
+                            host_email = meeting["hostEmail"]
+                            meeting_id = meeting["id"]
+                            meeting_details = get_meeting_details(meeting_id, host_email = host_email)
+                            meeting_recordings += get_meeting_recordings(meeting_id, host_email)
+                        logger.debug(f"Got recordings: {meeting_recordings} for {meeting_details}")
+                        response = format_recording_response(meeting_details, meeting_recordings)
+                else:
+                    response = Response()
+                    response.markdown = msg
             else:
                 response = "Please provide a meeting number"
         except Exception as e:
@@ -313,9 +362,11 @@ class RecordingHelpCommand(HelpCommand):
                         rec_column = Column(items = [TextBlock("Meeting number"), rec_input])
                         rec_host_input = Text("meeting_host", placeholder="user@domain")
                         host_column = Column(items = [TextBlock("Meeting host (optional)"), rec_host_input])
+                        rec_history_input = Text("days_back", placeholder=f"{MEETING_REC_RANGE}")
+                        history_column = Column(items = [TextBlock("Days back"), rec_history_input])
                         rec_submit = Submit(title="Submit", data={COMMAND_KEYWORD_KEY: command.command_keyword})
                         rec_card = AdaptiveCard(
-                            body = [ColumnSet(columns = [rec_column, host_column])],
+                            body = [ColumnSet(columns = [rec_column, host_column, history_column])],
                             actions = [rec_submit]
                         )
                         action = ShowCard(card = rec_card, title = f"{command.help_message}")
