@@ -27,6 +27,21 @@ from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 
 import logging, coloredlogs
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  [%(levelname)7s]  [%(module)s.%(name)s.%(funcName)s]:%(lineno)s %(message)s",
+    handlers=[
+        logging.FileHandler("/log/debug.log"),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
+coloredlogs.install(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    fmt="%(asctime)s  [%(levelname)7s]  [%(module)s.%(name)s.%(funcName)s]:%(lineno)s %(message)s",
+    logger=logger
+)
+
 import requests
 from flask import Flask
 import oauth_grant_flow as oauth
@@ -56,21 +71,6 @@ from webex_bot.webex_bot import WebexBot
 from webex_bot.websockets.webex_websocket_client import DEFAULT_DEVICE_URL
 
 MEETING_REC_RANGE = 10 # days to look back for meetings
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  [%(levelname)7s]  [%(module)s.%(name)s.%(funcName)s]:%(lineno)s %(message)s",
-    handlers=[
-        logging.FileHandler("/log/debug.log"),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-coloredlogs.install(
-    level=os.getenv("LOG_LEVEL", "INFO"),
-    fmt="%(asctime)s  [%(levelname)7s]  [%(module)s.%(name)s.%(funcName)s]:%(lineno)s %(message)s",
-    logger=logger
-)
 
 flask_app = Flask(__name__)
 flask_app.config["DEBUG"] = True
@@ -361,9 +361,9 @@ class RecordingHelpCommand(HelpCommand):
                         rec_input = Text("meeting_number", placeholder="Meeting number")
                         rec_column = Column(items = [TextBlock("Meeting number"), rec_input])
                         rec_host_input = Text("meeting_host", placeholder="user@domain")
-                        host_column = Column(items = [TextBlock("Meeting host (optional)"), rec_host_input])
+                        host_column = Column(items = [TextBlock("Meeting host"), rec_host_input])
                         rec_history_input = Text("days_back", placeholder=f"{MEETING_REC_RANGE}")
-                        history_column = Column(items = [TextBlock("Days back"), rec_history_input])
+                        history_column = Column(items = [TextBlock("Days back"), rec_history_input], width="auto")
                         rec_submit = Submit(title="Submit", data={COMMAND_KEYWORD_KEY: command.command_keyword})
                         rec_card = AdaptiveCard(
                             body = [ColumnSet(columns = [rec_column, host_column, history_column])],
