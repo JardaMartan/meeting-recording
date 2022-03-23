@@ -70,7 +70,11 @@ from webex_bot.commands.help import HelpCommand, HELP_COMMAND_KEYWORD
 from webex_bot.webex_bot import WebexBot
 from webex_bot.websockets.webex_websocket_client import DEFAULT_DEVICE_URL
 
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler, FileModifiedEvent
+
 MEETING_REC_RANGE = 10 # days to look back for meetings
+CONFIG_FILE = "/config/config.json"
 
 flask_app = Flask(__name__)
 flask_app.config["DEBUG"] = True
@@ -180,15 +184,14 @@ def meeting_is_pmr(meeting_num, host_email):
 
 class RecordingCommand(Command):
     
-    def __init__(self, respond_only_to_host = False, protect_pmr = True):
+    def __init__(self, bot):
         logger.debug("Registering \"rec\" command")
         super().__init__(
             command_keyword="rec",
             help_message="Provide meeting number to get its recordings",
             card = None)
             
-        self.respond_only_to_host = respond_only_to_host
-        self.protect_pmr = protect_pmr
+        self.bot = bot
 
     """
     def pre_card_load_reply(self, message, attachment_actions, activity):
@@ -264,7 +267,7 @@ class RecordingCommand(Command):
             days_back = int(days_back)
             if len(meeting_num) > 0:
                 temp_host_email = host_email if host_email else actor_email
-                if self.protect_pmr and meeting_is_pmr(meeting_num, temp_host_email):
+                if self.bot.protect_pmr and meeting_is_pmr(meeting_num, temp_host_email):
                     if  actor_email.lower() != temp_host_email.lower():
                         response = Response()
                         response.markdown = "Only owner can request a PMR meeting recording."
@@ -285,7 +288,7 @@ class RecordingCommand(Command):
                 
                 meeting_list, msg = get_meeting_id_list(meeting_num, actor_email, host_email = host_email, days_back_range = days_back)
                 if meeting_list is not None and len(meeting_list) > 0:
-                    if self.respond_only_to_host and actor_email.lower() != host_email.lower():
+                    if self.bot.respond_only_to_host and actor_email.lower() != host_email.lower():
                         logger.debug(f"Actor {actor_email} not a host of the meeting {meeting_num}, rejecting request.")
                         response = Response()
                         response.markdown = "Only host can request a meeting recording."
@@ -484,36 +487,49 @@ def get_meeting_recordings(meeting_id, host_email):
         
     return result
     
-def load_config():
+def load_config(cfg_file = CONFIG_FILE):
     """
     Load the configuration file.
     
     Returns:
         dict: configuration file JSON
     """
-    with open("/config/config.json") as file:
+    with open(cfg_file) as file:
         config = json.load(file)
     
     return config
-
+    
+class CfgFileEventHandler(FileSystemEventHandler):
+    
+    def __init__(self, cfg_modified_action = None):
+        super().__init__()
+        
+        self.cfg_modified_action = cfg_modified_action
+    
+    def on_modified(self, event):
+        logger.debug(f"File system modified event: {event}")
+        if isinstance(event, FileModifiedEvent) and self.cfg_modified_action is not None:
+            self.cfg_modified_action()
+        
 class WebexBotShare(WebexBot):
     
     def __init__(self,
         teams_bot_token,
-        approved_users = [],
-        approved_domains = [],
-        respond_only_to_host = False,
-        protect_pmr = True,
-        device_url = DEFAULT_DEVICE_URL):
+        device_url = DEFAULT_DEVICE_URL,
+        config_file = CONFIG_FILE):
+        
+        if config_file is not None:
+            self.file_observer = Observer()
+            self.cfg_file_event_handler = CfgFileEventHandler(cfg_modified_action = self.reload_config)
+            self.file_observer.schedule(self.cfg_file_event_handler, config_file)
+            self.file_observer.start()
         
         WebexBot.__init__(self,
             teams_bot_token,
-            approved_users = approved_users,
-            approved_domains = approved_domains,
             device_url = device_url)
-        
-        self.respond_only_to_host = respond_only_to_host
-        self.protect_pmr = protect_pmr  
+
+        self.config_file = config_file
+        self.reload_config()
         
         self.help_command = RecordingHelpCommand(self.bot_display_name, "Click on a button.", self.teams.people.me().avatar)
         self.commands = {self.help_command}
@@ -566,6 +582,17 @@ class WebexBotShare(WebexBot):
 
         reply = reply.as_dict()
         self.teams.messages.create(roomId = teams_message.roomId, **reply)
+        
+    def reload_config(self):
+        config = load_config(self.config_file)
+        logger.info("CONFIG file reload: {}".format(config))
+        
+        self.approved_users = config.get("approved_users", [])
+        self.approved_domains = config.get("approved_domains", [])
+        self.respond_only_to_host = config.get("respond_only_to_host", False)
+        self.protect_pmr = config.get("protect_pmr", True)
+        
+        self.approval_parameters_check()
                 
 """
 Independent thread startup, see:
@@ -626,14 +653,10 @@ if __name__ == "__main__":
     loop.run_until_complete(start_runner())
     
     # Create a Bot Object
-    bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"),
-        approved_users = config.get("approved_users", []),
-        approved_domains = config.get("approved_domains", []),
-        respond_only_to_host = config.get("respond_only_to_host", False),
-        protect_pmr = config.get("protect_pmr", True))
+    bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"), config_file = CONFIG_FILE)
 
     # Add new commands for the bot to listen out for.
-    bot.add_command(RecordingCommand(respond_only_to_host = bot.respond_only_to_host, protect_pmr = bot.protect_pmr))
+    bot.add_command(RecordingCommand(bot))
 
     # Call `run` for the bot to wait for incoming messages.
     bot.run()
