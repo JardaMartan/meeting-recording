@@ -9,9 +9,9 @@ The links for download are temporary links (valid for 4 hours) provided by Webex
 The user can ask the Bot in 1-1 communication for the recordings in following ways:
 1. Forward a Space meeting recording from a Space communication to the Bot
 2. Send `help` message to the Bot and in the received form fill in the meeting number and optionally host email
-3. Send `rec <meeting_num> <host_email>` message to the Bot. Host email is optional.  
+3. Send `rec <meeting_num> <host_email> <days_back>` message to the Bot. Host email is optional. `days_back` specifies how many days back from now is searched for the same meeting number (default is 10 days).  
 
-> If a meeting number is used (options 2 and 3), only the last meeting recording is provided. This is done to simplify the Bot workflow.  
+> If a meeting number is used (options 2 and 3), only the meeting recordings from `days_back` range are provided. This is done to simplify the Bot workflow.  
 Host email is required in the above communication, if the meeting is unlisted (private) or the requestor was not the host of the meeting.  
 Additionally the recording requests can be limited by following [config/config.json](./config/config.json) parameters:
 > - **respond_only_to_host** - Bot provides the recording only to the requestor who was the host of the meeting
@@ -79,6 +79,8 @@ f) Save **docker-compose.yml**
 ### 4. Edit the `config/config.json`
 a) set the **approved_users** and/or **approved_domains**. Bot will only respond to the users who match the lists.  
 b) set the **respond_only_to_host** and **protect_pmr** parameters. If **respond_only_to_host** is set to `true`, the Bot provides meeting recordings only to the meeting host. If **protect_pmr** is set to `true`, the Bot provides PMR recordings only to the PMR owner even if the **respond_only_to_host** is set to `false`.
+
+> If the `config.json` is changed while the Bot is running, the change is detected automatically. Restart is not needed.
 
 ### 5. Don't Forget to Commit the Configuration Changes
 After changing **docker-compose.yml**, **config.json** or any part of the Bot code, run  
