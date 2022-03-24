@@ -33,11 +33,11 @@ The recording can be forwarded by clicking on a **Forward** icon.
 <img src="./images/space_meeting-2.png" width="50%">  
 The user can fill in the list of recipients or create a Space.  
 <img src="./images/space_meeting-3.png" width="50%">  
-Each recipient can receive the meeting only once. If you want to repeat the forwarding to the same recipient (for example when testing the Bot), you need to first delete the forwarded recording from your 1-1 communication with the recipient and then try forwarding it again.  
+Each recipient can receive the recording only once. If you want to repeat the forwarding to the same recipient (for example when testing the Bot), you need to first delete the forwarded recording from your 1-1 communication with the recipient and then try forwarding it again.  
 <img src="./images/space_meeting-4.png" width="50%">  
 
 ### 2. Using a Form
-As a response to `help` message, the Bot sends a [Buttons & Cards](https://developer.webex.com/docs/buttons-and-cards) form in which the requestor can fill in the meeting number and optionally host email.  
+As a response to `help` message, the Bot sends a [Buttons & Cards](https://developer.webex.com/docs/buttons-and-cards) form in which the requestor can fill in the meeting number and optionally host email and number of days back to search for the meeting.  
 <img src="./images/form-1.png" width="50%">  
 
 ### 3. Sending a `rec` Message
