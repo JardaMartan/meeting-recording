@@ -115,3 +115,7 @@ c) Rebuild the Bot:
 `docker-compose build`  
 d) Run the Bot:  
 `docker-compose up -d`  
+
+Docker Hub image gets updated automatically on every stop/start, so only this sequence is needed:  
+`docker-compose down`  
+`docker-compose up -d`  
