@@ -1,7 +1,7 @@
 # Webex Recording Download Bot
 
 Webex meeting recordings are normally available for download only to meeting hosts and only using a web browser. Host needs to access the webex site's web page and find the recordings there. This Bot provides a capability to download recordings of a Webex meeting (both Classic and Space meetings) by just sending it a meeting number and host email or by forwarding it a Space recording message.
-<img src="./images/rec-1.png" width="50%">  
+<img src="./images/rec-1.png" width="70%">  
 The links for download are temporary links (valid for 4 hours) provided by Webex [Meetings](https://developer.webex.com/docs/api/v1/meetings) and [Recordings](https://developer.webex.com/docs/api/v1/recordings) APIs. The Bot neither downloads the recordings nor it stores any meeting or recording information.
 
 
@@ -28,13 +28,13 @@ The Bot works as a user front-end. The Bot uses websockets for its communication
 
 ### 1. Space Meeting Forwarding
 Space meeting recording is sent to a Space as a special kind of message which provides an integrated playback client.  
-<img src="./images/space_meeting_1.png" width="50%">  
+<img src="./images/space_meeting-1.png" width="50%">  
 The recording can be forwarded by clicking on a **Forward** icon.  
-<img src="./images/space_meeting_2.png" width="50%">  
+<img src="./images/space_meeting-2.png" width="50%">  
 The user can fill in the list of recipients or create a Space.  
-<img src="./images/space_meeting_3.png" width="50%">  
+<img src="./images/space_meeting-3.png" width="50%">  
 Each recipient can receive the meeting only once. If you want to repeat the forwarding to the same recipient (for example when testing the Bot), you need to first delete the forwarded recording from your 1-1 communication with the recipient and then try forwarding it again.  
-<img src="./images/space_meeting_4.png" width="50%">  
+<img src="./images/space_meeting-4.png" width="50%">  
 
 ### 2. Using a Form
 As a response to `help` message, the Bot sends a [Buttons & Cards](https://developer.webex.com/docs/buttons-and-cards) form in which the requestor can fill in the meeting number and optionally host email.  
