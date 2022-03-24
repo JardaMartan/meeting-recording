@@ -422,6 +422,18 @@ def create_recording_card(meeting_details, meeting_recordings):
         "size": "Large"
     }
     card["body"].append(header)
+    
+    if len(meeting_recordings) > 0:
+        audio_url, video_url, expires = get_recording_urls(meeting_recordings[0])
+        expires = expires.replace("T", " ")
+        expires = expires.replace("Z", " GMT")
+        expires_block = {
+            "type": "TextBlock",
+            "text": f"Download available until {expires}",
+            "wrap": True
+        }
+        card["body"].append(expires_block)
+
     for rec in meeting_recordings:
         card["body"].append(rec_block(rec))
                 
