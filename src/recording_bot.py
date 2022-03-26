@@ -20,7 +20,7 @@ maybe:
 spark-compliance:meetings_read
 """
 
-import os, sys
+import os, sys, shutil
 import asyncio
 
 from dotenv import load_dotenv, find_dotenv
@@ -75,6 +75,7 @@ from watchdog.events import FileSystemEventHandler, FileModifiedEvent
 
 MEETING_REC_RANGE = 10 # days to look back for meetings
 CONFIG_FILE = "/config/config.json"
+DEFAULT_CONFIG_FILE = "./default-config.json"
 
 flask_app = Flask(__name__)
 flask_app.config["DEBUG"] = True
@@ -506,6 +507,14 @@ def load_config(cfg_file = CONFIG_FILE):
     Returns:
         dict: configuration file JSON
     """
+    # check if file exists
+    try:
+        os.stat(cfg_file)
+    except FileNotFoundError as e:
+        logger.debug(f"config file: {e}")
+        logger.info(f"copy {DEFAULT_CONFIG_FILE} to {cfg_file}")
+        shutil.copy2(DEFAULT_CONFIG_FILE, cfg_file)
+    
     with open(cfg_file) as file:
         config = json.load(file)
     
