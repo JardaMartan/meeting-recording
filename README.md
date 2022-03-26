@@ -46,7 +46,7 @@ A 1-1 message to the Bot in the format `rec <meeting_num> <host_email>` provides
 
 ---
 ## How to Install
-The Bot is written in Python and is provided for [Docker Compose](https://docs.docker.com/compose/). Following steps are needed to get it running in a Docker environment. The Docker image can be either built locally (follow all steps in this section) or used from Docker Hub. Docker Hub approach is easier mainly due to an automated update process.
+The Bot is written in Python and is provided for [Docker Compose](https://docs.docker.com/compose/). Following steps are needed to get it running in a Docker environment. The Docker image can be either built locally (follow all steps in this section) or used from Docker Hub. Docker Hub approach is easier mainly due to an simpler update process.
 
 ### Docker Hub image
 To use the Docker Hub image, follow the configuration steps 1 - 4, but first copy `docker-compose-dockerhub.yml` to `docker-compose.yml`. After configuration is complete, run  
