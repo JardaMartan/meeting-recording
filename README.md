@@ -41,7 +41,7 @@ As a response to `help` message, the Bot sends a [Buttons & Cards](https://devel
 <img src="./images/form-1.png" width="50%">  
 
 ### 3. Sending a `rec` Message
-A 1-1 message to the Bot in the format `rec <meeting_num> <host_email> <days_back>` provides the recording. If `<host_email>` is omitted, requestor's email is used. Default `<days_back` is 10.  
+A 1-1 message to the Bot in the format `rec <meeting_num> <host_email> <days_back>` provides the recording. If `host_email` is omitted, requestor's email is used. Default `days_back` is 10.  
 <img src="./images/message-1.png" width="50%">  
 
 ---
