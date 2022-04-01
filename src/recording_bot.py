@@ -315,6 +315,10 @@ class RecordingCommand(Command):
         
 class RecordingHelpCommand(HelpCommand):
     
+    def __init__(self, bot_name, bot_help_subtitle, bot_help_image, bot):
+        super().__init__(bot_name, bot_help_subtitle, bot_help_image)
+        self.bot = bot
+    
     def build_card(self, message, attachment_actions, activity):
         """
         Construct a help message for users.
@@ -362,15 +366,23 @@ class RecordingHelpCommand(HelpCommand):
                 if command.help_message and command.command_keyword != HELP_COMMAND_KEYWORD:
                     logger.debug(f"preparing help for \"{command.command_keyword}\"")
                     if command.command_keyword == "rec":
+                        card_columns = []
                         rec_input = Text("meeting_number", placeholder="Meeting number")
                         rec_column = Column(items = [TextBlock("Meeting number"), rec_input])
-                        rec_host_input = Text("meeting_host", placeholder="user@domain")
-                        host_column = Column(items = [TextBlock("Meeting host"), rec_host_input])
+                        card_columns.append(rec_column)
+                        
+                        if not self.bot.respond_only_to_host:
+                            rec_host_input = Text("meeting_host", placeholder="user@domain")
+                            host_column = Column(items = [TextBlock("Meeting host"), rec_host_input])
+                            card_columns.append(host_column)
+
                         rec_history_input = Text("days_back", placeholder=f"{MEETING_REC_RANGE}")
                         history_column = Column(items = [TextBlock("Days back"), rec_history_input], width="auto")
+                        card_columns.append(history_column)
+                        
                         rec_submit = Submit(title="Submit", data={COMMAND_KEYWORD_KEY: command.command_keyword})
                         rec_card = AdaptiveCard(
-                            body = [ColumnSet(columns = [rec_column, host_column, history_column])],
+                            body = [ColumnSet(columns = card_columns)],
                             actions = [rec_submit]
                         )
                         action = ShowCard(card = rec_card, title = f"{command.help_message}")
@@ -552,7 +564,7 @@ class WebexBotShare(WebexBot):
         self.config_file = config_file
         self.reload_config()
         
-        self.help_command = RecordingHelpCommand(self.bot_display_name, "Click on a button.", self.teams.people.me().avatar)
+        self.help_command = RecordingHelpCommand(self.bot_display_name, "Click on a button.", self.teams.people.me().avatar, self)
         self.commands = {self.help_command}
         self.help_command.commands = self.commands
     
