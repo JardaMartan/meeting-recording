@@ -95,7 +95,7 @@ a) Run `docker-compose up` command on the Docker host command line. If you want 
 
 ### 8. Authorize the Application
 a) In a web browser open the authorization URL, for example: `https://localhost:5443/webex/authorize`  
-b) Webex login page will load. Enter admin email address and password.  
+b) Webex login page will load. Enter Compliance Officer's email address and password.  
 c) Confirm the requested Integration scopes.  
 d) If all goes well, you will end up on a confirmation page:  
 <img src="./images/integration-1.png" width="50%">  
