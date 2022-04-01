@@ -156,7 +156,24 @@ def get_recording_details(meeting_id, host_email):
             for rec in recordings_sorted:
                 rec_id = rec["id"]
                 logger.debug(f"Get recording {rec_id} details")
+                """
+                This part depends on an Integration scope and permissions of the user who authorized it.
+                See oauth_grant_flow.py, WBX_MEETINGS_RECORDING_READ_SCOPE
+                
+                - hostEmail parameter needs to be used if the scope is "meeting:admin_recordings_read"
+                and the authorizing user is normal Admin
+                
+                - in some Webex configurations however the admin can be blocked from recording download
+                and then only Compliance officer can access the recordings. In that case the scope has
+                to be changed to "spark-compliance:meetings_read" (and "meeting:admin_recordings_read" removed).
+                hostEmail parameter must not be used in that case. Authorization of the Integration has to be
+                done by Compliance officer.
+                """
+                
+                # for "meeting:admin_recordings_read" scope and Admin authorization:
                 # recording_detail = webex_api._session.get(webex_api._session.base_url+f"recordings/{rec_id}", {"hostEmail": host_email})
+
+                # for "spark-compliance:meetings_read" scope and Compliance officer authorization:
                 recording_detail = webex_api._session.get(webex_api._session.base_url+f"recordings/{rec_id}")
                 rec_detail = json.loads(json.dumps(recording_detail))
                 logger.debug(f"Got recording {rec_id} details: {rec_detail}")
