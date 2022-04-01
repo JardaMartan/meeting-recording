@@ -22,7 +22,7 @@ Additionally the recording requests can be limited by following [config/config.j
 In order to access all recordings across the Webex Org, the Bot is using a [Webex Integration](https://developer.webex.com/docs/integrations) in the backend. The integration needs to be authorized by Webex admin and it uses following scopes to access the recording and user information:  
 `meeting:admin_schedule_read`  
 `meeting:admin_preferences_read`  
-`meeting:admin_recordings_read`  
+`spark-compliance:meetings_read`  
 `spark:people_read`  
 The Bot works as a user front-end. The Bot uses websockets for its communication and is based on [Webex Bot](https://pypi.org/project/webex-bot/) by [Finbarr Brady](mailto:finbarr.brady@gmail.com). The advantage of this approach is that there is no need for [Webhooks](https://developer.webex.com/docs/webhooks) or any special firewall setup. From the network perspective the Bot works as a Webex App. The Webex API calls are performed via standard HTTPS using [Webex Teams SDK](https://webexteamssdk.readthedocs.io/en/latest/index.html).
 
@@ -69,9 +69,9 @@ b) The important part of the Integration setup is a **Redirect URI**. It is used
 c) Select (check) the scopes:  
 `meeting:admin_schedule_read`  
 `meeting:admin_preferences_read`  
-`meeting:admin_recordings_read`  
+`spark-compliance:meetings_read`  
 `spark:people_read`  
-<img src="./images/scope-1.png" width="50%">  
+<img src="./images/scope-2.png" width="50%">  
 d) Click **Add Integration**  
 e) Copy **Client ID** , **Client Secret** and **Integration ID** and paste them to the **WEBEX_INTEGRATION_CLIENT_ID**, **WEBEX_INTEGRATION_CLIENT_SECRET** and **WEBEX_INTEGRATION_ID** variables in **docker-compose.yml**  
 f) Save **docker-compose.yml**
