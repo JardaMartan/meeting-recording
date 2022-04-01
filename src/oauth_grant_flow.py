@@ -39,9 +39,9 @@ WBX_TEAMS_COMPLIANCE_READ_SCOPE = ["spark-compliance:events_read",
 WBX_MEETINGS_COMPLIANCE_SCOPE = ["spark-compliance:meetings_write"]
 
 WBX_MEETINGS_RECORDING_READ_SCOPE = ["meeting:admin_schedule_read",
-    "meeting:admin_recordings_read",
+    # "meeting:admin_recordings_read",
     "meeting:admin_preferences_read",
-    # "spark-compliance:meetings_read",
+    "spark-compliance:meetings_read",
     "spark:people_read"
 ]
 

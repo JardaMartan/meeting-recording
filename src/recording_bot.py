@@ -156,7 +156,8 @@ def get_recording_details(meeting_id, host_email):
             for rec in recordings_sorted:
                 rec_id = rec["id"]
                 logger.debug(f"Get recording {rec_id} details")
-                recording_detail = webex_api._session.get(webex_api._session.base_url+f"recordings/{rec_id}", {"hostEmail": host_email})
+                # recording_detail = webex_api._session.get(webex_api._session.base_url+f"recordings/{rec_id}", {"hostEmail": host_email})
+                recording_detail = webex_api._session.get(webex_api._session.base_url+f"recordings/{rec_id}")
                 rec_detail = json.loads(json.dumps(recording_detail))
                 logger.debug(f"Got recording {rec_id} details: {rec_detail}")
                 yield rec_detail
@@ -254,17 +255,32 @@ class RecordingCommand(Command):
         try:
             if isinstance(attachment_actions, AttachmentAction):
                 meeting_num = attachment_actions.inputs.get("meeting_number")
-                host_email = attachment_actions.inputs.get("meeting_host", "")
+                host_email = attachment_actions.inputs.get("meeting_host", actor_email)
                 days_back = attachment_actions.inputs.get("days_back", MEETING_REC_RANGE)
             elif isinstance(attachment_actions, Message):
                 meeting_info = message.strip()
-                meeting_num, host_email, days_back = re.findall(r"^([\d\s]+) (.*) (.*)", meeting_info)[0]
+                meeting_num = re.findall(r"^([\d\s]+)", meeting_info)[0]
+                logger.debug(f"Rec command - meeting number: {meeting_num}")
+                meeting_info = meeting_info.replace(meeting_num, "")
+                
+                host_match = re.findall(r"(\S{1,}@\S{2,}\.\S{2,})", meeting_info)
+                if len(host_match) == 0:
+                    host_email = actor_email
+                else:
+                    host_email = host_match[0]
+                logger.debug(f"Rec command - host email: {host_email}")
+                meeting_info = meeting_info.replace(host_email, "")
+                    
+                db_match = re.findall(r"([\d]+)", meeting_info)
+                if len(db_match) == 0:
+                    days_back = MEETING_REC_RANGE
+                else:
+                    days_back = db_match[0]
+                logger.debug(f"Rec command - days back: {days_back}")
             else:
                 return "Unknown input from {attachment_actions}"
             meeting_num = meeting_num.strip().replace(" ", "")
             host_email = host_email.strip()
-            if not days_back:
-                days_back = MEETING_REC_RANGE
             days_back = int(days_back)
             if len(meeting_num) > 0:
                 temp_host_email = host_email if host_email else actor_email
