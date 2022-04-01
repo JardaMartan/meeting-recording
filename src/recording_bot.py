@@ -23,8 +23,11 @@ spark-compliance:meetings_read
 import os, sys, shutil
 import asyncio
 
+"""
+# not needed if the environment variables are provided from the docker-compose.yml
 from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
+"""
 
 import logging, coloredlogs
 logging.basicConfig(
