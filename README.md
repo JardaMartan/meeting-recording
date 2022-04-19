@@ -19,8 +19,8 @@ Additionally the recording requests can be limited by following [config/config.j
 > - **approved_users** - only users from the list can communicate with the Bot
 > - **approved_domains** - only users whose email addresses domains are in the domain list can communicate with the Bot
 
-In order to access all recordings across the Webex Org, the Bot is using a [Webex Integration](https://developer.webex.com/docs/integrations) in the backend. **The integration needs to be authorized by a Compliance officer**, i.e. the user who has **Compliance Officer** functional role.
-<img src="./images/user-1.png" width="50%">
+In order to access all recordings across the Webex Org, the Bot is using a [Webex Integration](https://developer.webex.com/docs/integrations) in the backend. **The integration needs to be authorized by a Compliance officer**, i.e. the user who has **Compliance Officer** functional role.  
+<img src="./images/user-1.png" width="50%">  
 The integration uses following scopes to access the recording and user information:  
 `meeting:admin_schedule_read`  
 `meeting:admin_preferences_read`  
