@@ -19,7 +19,9 @@ Additionally the recording requests can be limited by following [config/config.j
 > - **approved_users** - only users from the list can communicate with the Bot
 > - **approved_domains** - only users whose email addresses domains are in the domain list can communicate with the Bot
 
-In order to access all recordings across the Webex Org, the Bot is using a [Webex Integration](https://developer.webex.com/docs/integrations) in the backend. The integration needs to be authorized by Webex admin and it uses following scopes to access the recording and user information:  
+In order to access all recordings across the Webex Org, the Bot is using a [Webex Integration](https://developer.webex.com/docs/integrations) in the backend. **The integration needs to be authorized by a Compliance officer**, i.e. the user who has **Compliance Officer** functional role.
+<img src="./images/user-1.png" width="50%">
+The integration uses following scopes to access the recording and user information:  
 `meeting:admin_schedule_read`  
 `meeting:admin_preferences_read`  
 `spark-compliance:meetings_read`  
@@ -95,7 +97,7 @@ a) Run `docker-compose up` command on the Docker host command line. If you want 
 
 ### 8. Authorize the Application
 a) In a web browser open the authorization URL, for example: `https://localhost:5443/webex/authorize`  
-b) Webex login page will load. Enter Compliance Officer's email address and password.  
+b) Webex login page will load. Enter **Compliance Officer's email address** and password. If your Webex organization does not have a Compliance officer account yet, you need to create one. For security reasons, do not assign Compliance officer role to an ordinary user.  
 c) Confirm the requested Integration scopes.  
 d) If all goes well, you will end up on a confirmation page:  
 <img src="./images/integration-1.png" width="50%">  
