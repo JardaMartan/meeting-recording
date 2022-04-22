@@ -277,6 +277,8 @@ class RecordingCommand(Command):
                 meeting_num = attachment_actions.inputs.get("meeting_number")
                 host_email = attachment_actions.inputs.get("meeting_host", actor_email)
                 days_back = attachment_actions.inputs.get("days_back", MEETING_REC_RANGE)
+                if days_back == "":
+                    days_back = MEETING_REC_RANGE
             elif isinstance(attachment_actions, Message):
                 meeting_info = message.strip()
                 meeting_num = re.findall(r"^([\d\s]+)", meeting_info)[0]
