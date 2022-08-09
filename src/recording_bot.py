@@ -679,7 +679,7 @@ async def start_runner():
         while not_started:
             logger.info("In start loop")
             try:
-                r = requests.get("https://127.0.0.1:5050/webex/authdone", proxies=no_proxies, verify=False)
+                r = requests.get("http://127.0.0.1:5050/webex/authdone", proxies=no_proxies, verify=False)
                 if r.status_code == 200:
                     logger.info("Server started, quiting start_loop")
                     not_started = False
@@ -717,7 +717,8 @@ if __name__ == "__main__":
     config = load_config()
     logger.info("CONFIG: {}".format(config))
     
-    threading.Thread(target=lambda: flask_app.run(host="0.0.0.0", port=5050, ssl_context="adhoc", debug=True, use_reloader=False)).start()
+    # threading.Thread(target=lambda: flask_app.run(host="0.0.0.0", port=443, ssl_context="adhoc", debug=True, use_reloader=False)).start()
+    threading.Thread(target=lambda: flask_app.run(host="0.0.0.0", port=5050, debug=True, use_reloader=False)).start()
     # flask_app.run(host="0.0.0.0", port=5050, ssl_context="adhoc")
     
     loop = asyncio.get_event_loop()    
