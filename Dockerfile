@@ -24,4 +24,4 @@ COPY src/ .
 #RUN cd /usr/local/lib/python3.9/site-packages && patch -p0 < /code/response.patch
 
 # command to run on container start
-CMD [ "recording_bot.py", "-vv" ]
+CMD [ "python recording_bot.py", "-vvv" ]
