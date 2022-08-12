@@ -52,7 +52,8 @@ oauth.webex_scope = oauth.WBX_MEETINGS_RECORDING_READ_SCOPE
 oauth.webex_token_storage_path = "/token_storage/data/"
 oauth.webex_token_key = "recording_bot"
 
-import threading
+# import threading
+import _thread
 import time
 import json
 import re
@@ -717,8 +718,9 @@ if __name__ == "__main__":
     config = load_config()
     logger.info("CONFIG: {}".format(config))
     
-    # threading.Thread(target=lambda: flask_app.run(host="0.0.0.0", port=443, ssl_context="adhoc", debug=True, use_reloader=False)).start()
-    threading.Thread(target=lambda: flask_app.run(host="0.0.0.0", port=5050, debug=True, use_reloader=False)).start()
+    # threading.Thread(target=lambda: flask_app.run(host="0.0.0.0", port=5050, ssl_context="adhoc", debug=True, use_reloader=False)).start()
+    # threading.Thread(target=lambda: flask_app.run(host="0.0.0.0", port=5050, debug=True, use_reloader=False)).start()
+    _thread.start_new_thread(flask_app.run, (), {"host": "0.0.0.0", "port":5050, "debug": True, "use_reloader": False})
     # flask_app.run(host="0.0.0.0", port=5050, ssl_context="adhoc")
     
     loop = asyncio.get_event_loop()    
