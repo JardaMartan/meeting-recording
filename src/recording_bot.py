@@ -61,6 +61,8 @@ from dateutil import parser as date_parser
 from datetime import datetime, timedelta
 
 import buttons_cards as bc
+import localization_strings
+locale_strings = localization_strings.LOCALES["en_US"]
 
 from webexteamssdk import WebexTeamsAPI, ApiError
 from webexteamssdk.models.cards import Colors, TextBlock, FontWeight, FontSize, Column, AdaptiveCard, ColumnSet, \
@@ -135,7 +137,7 @@ def get_meeting_id_list(meeting_num, actor_email, host_email = "", days_back_ran
     except ApiError as e:
         res = f"Webex API call exception: {e}."
         logger.error(res)
-        return None, "Unable or not allowed to get the meeting information."
+        return None, locale_strings["loc_unable_to_get_meeting"]
         
 def get_meeting_details(meeting_id, host_email = None):
     webex_api = WebexTeamsAPI(access_token = oauth.access_token())
@@ -211,7 +213,7 @@ class RecordingCommand(Command):
         logger.debug("Registering \"rec\" command")
         super().__init__(
             command_keyword="rec",
-            help_message="Provide meeting number to get its recordings",
+            help_message = locale_strings["loc_help"],
             card = None)
             
         self.bot = bot
@@ -310,7 +312,7 @@ class RecordingCommand(Command):
                 if self.bot.protect_pmr and meeting_is_pmr(meeting_num, temp_host_email):
                     if  actor_email.lower() != temp_host_email.lower():
                         response = Response()
-                        response.markdown = "Only owner can request a PMR meeting recording."
+                        response.markdown = locale_strings["loc_pmr_owner"]
                         return response
                         
                 """
@@ -331,7 +333,7 @@ class RecordingCommand(Command):
                     if self.bot.respond_only_to_host and actor_email.lower() != host_email.lower():
                         logger.debug(f"Actor {actor_email} not a host of the meeting {meeting_num}, rejecting request.")
                         response = Response()
-                        response.markdown = "Only host can request a meeting recording."
+                        response.markdown = locale_strings["loc_host_only"]
                     else:
                         meeting_recordings = []
                         for meeting in meeting_list:
@@ -345,10 +347,10 @@ class RecordingCommand(Command):
                     response = Response()
                     response.markdown = msg
             else:
-                response = "Please provide a meeting number"
+                response = locale_strings["loc_meeting_number"]
         except Exception as e:
             logger.error(f"Meeting number parsing error: {e}")
-            response = "Invalid meeting number"
+            response = locale_strings["loc_invalid_meeting"]
 
         return response
         
@@ -406,20 +408,20 @@ class RecordingHelpCommand(HelpCommand):
                     logger.debug(f"preparing help for \"{command.command_keyword}\"")
                     if command.command_keyword == "rec":
                         card_columns = []
-                        rec_input = Text("meeting_number", placeholder="Meeting number")
-                        rec_column = Column(items = [TextBlock("Meeting number"), rec_input])
+                        rec_input = Text("meeting_number", placeholder=locale_strings["loc_meeting_no"])
+                        rec_column = Column(items = [TextBlock(locale_strings["loc_meeting_no"]), rec_input])
                         card_columns.append(rec_column)
                         
                         if not self.bot.respond_only_to_host:
                             rec_host_input = Text("meeting_host", placeholder="user@domain")
-                            host_column = Column(items = [TextBlock("Meeting host"), rec_host_input])
+                            host_column = Column(items = [TextBlock(locale_strings["loc_meeting_host"]), rec_host_input])
                             card_columns.append(host_column)
 
                         rec_history_input = Text("days_back", placeholder=f"{MEETING_REC_RANGE}")
-                        history_column = Column(items = [TextBlock("Days back"), rec_history_input], width="auto")
+                        history_column = Column(items = [TextBlock(locale_strings["loc_days"]), rec_history_input], width="auto")
                         card_columns.append(history_column)
                         
-                        rec_submit = Submit(title="Submit", data={COMMAND_KEYWORD_KEY: command.command_keyword})
+                        rec_submit = Submit(title=locale_strings["loc_submit"], data={COMMAND_KEYWORD_KEY: command.command_keyword})
                         rec_card = AdaptiveCard(
                             body = [ColumnSet(columns = card_columns)],
                             actions = [rec_submit]
@@ -475,20 +477,21 @@ def create_recording_card(meeting_details, meeting_recordings):
     }
     card["body"].append(header)
     
+    for rec in meeting_recordings:
+        card["body"].append(rec_block(rec))
+                
     if len(meeting_recordings) > 0:
         audio_url, video_url, expires = get_recording_urls(meeting_recordings[0])
         expires = expires.replace("T", " ")
         expires = expires.replace("Z", " GMT")
         expires_block = {
             "type": "TextBlock",
-            "text": f"Download available until {expires}",
-            "wrap": True
+            "text": locale_strings["loc_recording_expires"].format(expires),
+            "wrap": True,
+            "color": "Attention"
         }
         card["body"].append(expires_block)
 
-    for rec in meeting_recordings:
-        card["body"].append(rec_block(rec))
-                
     return bc.wrap_form(card)
     
 def rec_block(rec):
@@ -603,7 +606,7 @@ class WebexBotShare(WebexBot):
         self.config_file = config_file
         self.reload_config()
         
-        self.help_command = RecordingHelpCommand(self.bot_display_name, "Click on a button.", self.teams.people.me().avatar, self)
+        self.help_command = RecordingHelpCommand(self.bot_display_name, locale_strings["loc_click"], self.teams.people.me().avatar, self)
         self.commands = {self.help_command}
         self.help_command.commands = self.commands
     
@@ -698,7 +701,8 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
     parser.add_argument("-v", "--verbose", action="count", help="Set logging level by number of -v's, -v=WARN, -vv=INFO, -vvv=DEBUG")
-    
+    parser.add_argument("-l", "--language", default = "en_US", help="Language (see localization_strings.LANGUAGE), default: cs_CZ")
+
     args = parser.parse_args()
     log_level = logging.INFO
     if args.verbose:
@@ -714,6 +718,8 @@ if __name__ == "__main__":
         # logger.info(f"setting {lgr} to {log_level}")
         lgr.setLevel(log_level)
     logger.info(f"Logging level: {logging.getLogger(__name__).getEffectiveLevel()}")
+    
+    locale_strings = localization_strings.LOCALES[args.language]
     
     config = load_config()
     logger.info("CONFIG: {}".format(config))
