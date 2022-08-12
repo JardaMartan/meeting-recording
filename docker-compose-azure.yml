@@ -1,0 +1,38 @@
+version: "2"
+
+networks:
+  recording_net:
+         
+services: 
+  recording_bot:
+    image: jardamartan/webex-recording-bot
+    command: python recording_bot.py -vvv
+    # command: tail -F anything
+    container_name: recording_bot
+    ports:
+      - "80:5050"
+    environment:
+      PYTHONUNBUFFERED: 'true'
+      CURL_CA_BUNDLE: ''
+      LOG_LEVEL: 'DEBUG'
+      # comma separated list of servers, formats:
+      # hostname_or_ip:port/protocol, hostname_or_ip:port, hostname_or_ip
+      # REDIRECT_URI: "https://localhost:5443/manager"
+      # syslog facility, values:
+      # CLOCK, CLOCK2, FTP, KERNEL, LOCAL0, LOCAL1, LOCAL2, LOCAL3, LOCAL4, LOCAL5, LOCAL6, LOCAL7,
+      # LOG_ALERT, LOG_AUDIT, MAIL, NETWORK, NTP, PRINTER, SECURITY, SYSLOG, SYSTEM, USER, UUCP
+      SYSLOG_FACILITY: "network"
+      # syslog severity, values:
+      # ALERT, CRITICAL, DEBUG, EMERGENCY, ERROR, INFO, NOTICE, WARNING
+      SYSLOG_SEVERITY: "debug"
+      WEBEX_INTEGRATION_ID: "paste_your_integration_id"
+      WEBEX_INTEGRATION_CLIENT_ID: "paste_your_integration_client_id"
+      WEBEX_INTEGRATION_CLIENT_SECRET: "paste_your_integration_client_secret"
+      BOT_ACCESS_TOKEN: "paste_your_bot_access_token"
+    restart: unless-stopped
+    networks:
+      - recording_net
+    volumes:    
+      - Config:/config
+      - Log:/log
+      - Token:/token_storage/data
