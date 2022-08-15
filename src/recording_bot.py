@@ -30,11 +30,15 @@ load_dotenv(find_dotenv())
 """
 
 import logging, coloredlogs
+import logging.handlers
+
+LOG_FILE = "/log/debug.log"
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  [%(levelname)7s]  [%(module)s.%(name)s.%(funcName)s]:%(lineno)s %(message)s",
     handlers=[
-        logging.FileHandler("/log/debug.log"),
+        logging.handlers.TimedRotatingFileHandler(LOG_FILE, backupCount=6, when='D', interval=7, atTime='midnight'), # weekly rotation
+        logging.FileHandler(LOG_FILE),
         logging.StreamHandler(sys.stdout)
     ]
 )
