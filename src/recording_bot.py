@@ -227,8 +227,39 @@ def meeting_is_pmr(meeting_num, host_email):
             
     except ApiError as e:
         logger.error(f"Webex API call exception: {e}.")
-
-
+        
+def audit_log(actor_email, host_email, meeting_num, days_back, status, description, recordings = []):
+    log_dict = {
+        "requestor": actor_email,
+        "meeting_host": host_email,
+        "meeting_number": meeting_num,
+        "days_back": days_back,
+        "recordings": recordings,
+        "status": status,
+        "description": description
+    }
+    audit_logger.info(f"JSON: {json.dumps(log_dict)}")
+    
+def create_recording_audit(meeting_recordings):
+    logger.debug("create recording audit")
+    result = []
+    for rec in meeting_recordings:
+        logger.debug(f"audit meeting record: {rec}")
+        recordings = get_recordings_for_meeting_id(rec["meetingId"], result)
+        if recordings is None:
+            result.append({"meetingId": rec["meetingId"], "recordings": [{"id": rec["id"]}]})
+        else:
+            recordings.append({"id": rec["id"]})
+            
+        logger.debug(f"recording audit: {result}")
+        
+    return result
+    
+def get_recordings_for_meeting_id(meeting_id, recording_audit):
+    for audit_rec in recording_audit:
+        if audit_rec["meetingId"] == meeting_id:
+            return audit_rec["recordings"]
+            
 class RecordingCommand(Command):
     
     def __init__(self, bot):
@@ -301,6 +332,8 @@ class RecordingCommand(Command):
             if isinstance(attachment_actions, AttachmentAction):
                 meeting_num = attachment_actions.inputs.get("meeting_number")
                 host_email = attachment_actions.inputs.get("meeting_host", actor_email)
+                if len(host_email) == 0:
+                    host_email = actor_email
                 days_back = attachment_actions.inputs.get("days_back", MEETING_REC_RANGE)
                 if days_back == "":
                     days_back = MEETING_REC_RANGE
@@ -335,6 +368,7 @@ class RecordingCommand(Command):
                     if  actor_email.lower() != temp_host_email.lower():
                         response = Response()
                         response.markdown = locale_strings["loc_pmr_owner"]
+                        audit_log(actor_email, temp_host_email, meeting_num, days_back, "denied", "PMR access denied")
                         return response
                         
                 """
@@ -356,6 +390,7 @@ class RecordingCommand(Command):
                         logger.debug(f"Actor {actor_email} not a host of the meeting {meeting_num}, rejecting request.")
                         response = Response()
                         response.markdown = locale_strings["loc_host_only"]
+                        audit_log(actor_email, host_email, meeting_num, days_back, "denied", "only host can access recordings")
                     else:
                         meeting_recordings = []
                         for meeting in meeting_list:
@@ -365,14 +400,19 @@ class RecordingCommand(Command):
                             meeting_recordings += get_meeting_recordings(meeting_id, host_email)
                         logger.debug(f"Got recordings: {meeting_recordings} for {meeting_details}")
                         response = format_recording_response(meeting_details, meeting_recordings)
+                        audit_recordings = create_recording_audit(meeting_recordings)
+                        audit_log(actor_email, host_email, meeting_num, days_back, "permitted", "recording links provided", recordings=audit_recordings)
                 else:
                     response = Response()
                     response.markdown = msg
+                    audit_log(actor_email, host_email, meeting_num, days_back, "nodata", "no recordings available")
             else:
                 response = locale_strings["loc_meeting_number"]
+                audit_log(actor_email, host_email, meeting_num, days_back, "invalid", "meeting number not provided")
         except Exception as e:
             logger.error(f"Meeting number parsing error: {e}")
             response = locale_strings["loc_invalid_meeting"]
+            audit_log(actor_email, host_email, meeting_num, days_back, "invalid", "meeting number parsing error")
 
         return response
         
@@ -667,15 +707,19 @@ class WebexBotShare(WebexBot):
         meeting_id = share_object["meetingInstanceId"]
         meeting_details = get_meeting_details(meeting_id)
         host_email = meeting_details["hostEmail"]
+        meeting_num = meeting_details["meetingNumber"]
         logger.info(f"Recording shared for meeting id {meeting_id} hosted by {host_email}")
 
         if self.respond_only_to_host and actor_email.lower() != host_email.lower():
             logger.debug(f"Actor {actor_email} not a host of the meeting {meeting_id}, rejecting request.")
             reply = Response()
             reply.markdown = locale_strings["loc_host_only"]
+            audit_log(actor_email, host_email, meeting_num, 0, "denied", "only host can access recordings")
         else:
             meeting_recordings = get_meeting_recordings(meeting_id, host_email)
             reply = format_recording_response(meeting_details, meeting_recordings)
+            audit_recordings = create_recording_audit(meeting_recordings)
+            audit_log(actor_email, host_email, meeting_num, 0, "permitted", "shared recording links provided", recordings=audit_recordings)
 
         reply = reply.as_dict()
         self.teams.messages.create(roomId = teams_message.roomId, **reply)
