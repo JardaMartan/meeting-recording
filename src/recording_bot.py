@@ -33,21 +33,39 @@ import logging, coloredlogs
 import logging.handlers
 
 LOG_FILE = "/log/debug.log"
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  [%(levelname)7s]  [%(module)s.%(name)s.%(funcName)s]:%(lineno)s %(message)s",
-    handlers=[
-        logging.handlers.TimedRotatingFileHandler(LOG_FILE, backupCount=6, when='D', interval=7, atTime='midnight'), # weekly rotation
-        logging.FileHandler(LOG_FILE),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-logger = logging.getLogger(__name__)
+AUDIT_LOG_FILE = "/log/audit.log"
+LOG_FORMATTER = logging.Formatter("%(asctime)s  [%(levelname)7s]  [%(module)s.%(name)s.%(funcName)s]:%(lineno)s %(message)s")
+
+def setup_logger(name, log_file, level=logging.INFO, formatter = LOG_FORMATTER, log_to_stdout = False):
+    """To setup as many loggers as you want"""
+
+    logging.handlers.TimedRotatingFileHandler(log_file, backupCount=6, when='D', interval=7, atTime='midnight'), # weekly rotation
+    file_handler = logging.FileHandler(log_file)        
+    file_handler.setFormatter(formatter)
+
+    logger = logging.getLogger(name)
+    add_logger(logger, file_handler, level)
+    
+    if log_to_stdout:
+        stream_handler = logging.StreamHandler(sys.stdout)
+        stream_handler.setFormatter(formatter)
+        add_logger(logger, stream_handler, level)
+
+    return logger
+    
+def add_logger(logger, handler, level):
+    logger.setLevel(level)
+    logger.addHandler(handler)
+    
+logger = setup_logger(__name__, LOG_FILE, log_to_stdout = True)
+audit_logger = setup_logger("audit", AUDIT_LOG_FILE)
+"""
 coloredlogs.install(
     level=os.getenv("LOG_LEVEL", "INFO"),
-    fmt="%(asctime)s  [%(levelname)7s]  [%(module)s.%(name)s.%(funcName)s]:%(lineno)s %(message)s",
+    fmt=LOG_FORMATTER,
     logger=logger
 )
+"""
 
 import requests
 from flask import Flask
