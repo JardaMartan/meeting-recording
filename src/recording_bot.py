@@ -650,7 +650,7 @@ class WebexBotShare(WebexBot):
         if self.respond_only_to_host and actor_email.lower() != host_email.lower():
             logger.debug(f"Actor {actor_email} not a host of the meeting {meeting_id}, rejecting request.")
             reply = Response()
-            reply.markdown = "Only host can request a meeting recording."
+            reply.markdown = locale_strings["loc_host_only"]
         else:
             meeting_recordings = get_meeting_recordings(meeting_id, host_email)
             reply = format_recording_response(meeting_details, meeting_recordings)
