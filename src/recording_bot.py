@@ -112,6 +112,7 @@ requests.packages.urllib3.disable_warnings()
 flask_app.register_blueprint(oauth.webex_oauth, url_prefix = "/webex")
 
 def get_last_meeting_id(meeting_num, actor_email, host_email = "", days_back_range = MEETING_REC_RANGE):
+    logger.debug("entering")
     meeting_id_list, msg = get_meeting_id_list(meeting_num, actor_email, host_email = host_email, days_back_range = days_back_range)
     if meeting_id_list is None:
         return None, None, msg
@@ -122,11 +123,13 @@ def get_last_meeting_id(meeting_num, actor_email, host_email = "", days_back_ran
         last_meeting_id = last_meeting["id"]
         last_meeting_host_email = last_meeting["hostEmail"]
         
+        logger.debug("leaving")
         return last_meeting_id, last_meeting_host_email, f"Last meeting id for {meeting_num} is {last_meeting_id}."
     else:
         return None, None, "Meeting not found"
         
 def get_meeting_id_list(meeting_num, actor_email, host_email = "", days_back_range = MEETING_REC_RANGE):
+    logger.debug(f"entering, host email: {host_email}")
     access_token = oauth.access_token()
     if access_token is None:
         return None, None, "No access token available, please authorize the Bot first."
@@ -145,14 +148,25 @@ def get_meeting_id_list(meeting_num, actor_email, host_email = "", days_back_ran
             logger.error(res)
             meeting_info = webex_api._session.get(webex_api._session.base_url+"meetings", {"meetingNumber": meeting_num, "hostEmail": actor_email, "from": from_stamp, "to": to_stamp})
 
+        logger.debug(f"!!! received meeting info: {dict(meeting_info)}")
         if len(meeting_info["items"]) > 0:            
             meeting_series_id = meeting_info["items"][0]["meetingSeriesId"]
-            meeting_host = meeting_info["items"][0]["hostEmail"]
+            host_id = meeting_info["items"][0].get("hostUserId")
+            if host_id is not None:
+                try:
+                    host_info = webex_api.people.get(host_id)
+                    logger.debug(f"meeting host info: {host_info}")
+                    meeting_host = host_info.emails[0]
+                except ApiError as e:
+                    logger.error(f"Webex API call exception: {e}.")
+            else:
+                meeting_host = meeting_info["items"][0].get("hostEmail", host_email)
             logger.debug(f"Found meeting series id: {meeting_series_id} for meeting number: {meeting_num}")
             meeting_list = webex_api._session.get(webex_api._session.base_url+"meetings", {"meetingSeriesId": meeting_series_id, "hostEmail": meeting_host, "meetingType": "meeting", "state": "ended", "from": from_stamp, "to": to_stamp})
             meeting_list = sorted(meeting_list["items"], key = lambda item: date_parser.parse(item["start"]))
             logger.debug(f"Got meetings: {meeting_list}")
             
+            logger.debug("leaving")
             return meeting_list, f"{len(meeting_list)} meetings found"
         else:
             return None, "Meeting not found"
@@ -332,8 +346,6 @@ class RecordingCommand(Command):
             if isinstance(attachment_actions, AttachmentAction):
                 meeting_num = attachment_actions.inputs.get("meeting_number")
                 host_email = attachment_actions.inputs.get("meeting_host", actor_email)
-                if len(host_email) == 0:
-                    host_email = actor_email
                 days_back = attachment_actions.inputs.get("days_back", MEETING_REC_RANGE)
                 if days_back == "":
                     days_back = MEETING_REC_RANGE
@@ -361,14 +373,16 @@ class RecordingCommand(Command):
                 return "Unknown input from {attachment_actions}"
             meeting_num = meeting_num.strip().replace(" ", "")
             host_email = host_email.strip()
+            if len(host_email) == 0:
+                host_email = actor_email
+                logger.debug(f"empty host email, setting to {actor_email}")
             days_back = int(days_back)
             if len(meeting_num) > 0:
-                temp_host_email = host_email if host_email else actor_email
-                if self.bot.protect_pmr and meeting_is_pmr(meeting_num, temp_host_email):
-                    if  actor_email.lower() != temp_host_email.lower():
+                if self.bot.protect_pmr and meeting_is_pmr(meeting_num, host_email):
+                    if  actor_email.lower() != host_email.lower():
                         response = Response()
                         response.markdown = locale_strings["loc_pmr_owner"]
-                        audit_log(actor_email, temp_host_email, meeting_num, days_back, "denied", "PMR access denied")
+                        audit_log(actor_email, host_email, meeting_num, days_back, "denied", "PMR access denied")
                         return response
                         
                 """
