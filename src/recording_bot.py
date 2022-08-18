@@ -394,14 +394,14 @@ class RecordingCommand(Command):
                     else:
                         meeting_recordings = []
                         for meeting in meeting_list:
-                            host_email = meeting["hostEmail"]
+                            temp_host_email = meeting.get("hostEmail", host_email)
                             meeting_id = meeting["id"]
-                            meeting_details = get_meeting_details(meeting_id, host_email = host_email)
-                            meeting_recordings += get_meeting_recordings(meeting_id, host_email)
+                            meeting_details = get_meeting_details(meeting_id, host_email = temp_host_email)
+                            meeting_recordings += get_meeting_recordings(meeting_id, temp_host_email)
                         logger.debug(f"Got recordings: {meeting_recordings} for {meeting_details}")
                         response = format_recording_response(meeting_details, meeting_recordings)
                         audit_recordings = create_recording_audit(meeting_recordings)
-                        audit_log(actor_email, host_email, meeting_num, days_back, "permitted", "recording links provided", recordings=audit_recordings)
+                        audit_log(actor_email, temp_host_email, meeting_num, days_back, "permitted", "recording links provided", recordings=audit_recordings)
                 else:
                     response = Response()
                     response.markdown = msg
