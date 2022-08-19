@@ -29,22 +29,60 @@ from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 """
 
-import logging, coloredlogs
+import logging
 import logging.handlers
+from logging import config
 
 LOG_FILE = "/log/debug.log"
 AUDIT_LOG_FILE = "/log/audit.log"
 LOG_FORMATTER = logging.Formatter("%(asctime)s  [%(levelname)7s]  [%(module)s.%(name)s.%(funcName)s]:%(lineno)s %(message)s")
+LOG_FORMAT = "%(asctime)s  [%(levelname)7s]  [%(module)s.%(name)s.%(funcName)s]:%(lineno)s %(message)s"
 
-def setup_logger(name, log_file, level=logging.INFO, formatter = LOG_FORMATTER, log_to_stdout = False):
+log_config = {
+    "version":1,
+    "root":{
+        "handlers" : ["console", "file"],
+        "level": "DEBUG"
+    },
+    "handlers":{
+        "console":{
+            "formatter": "std_out",
+            "class": "logging.StreamHandler",
+            "level": "DEBUG"
+        },
+        "file": {
+            "formatter": "std_out",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "backupCount": 6, 
+            "when": "D",
+            "interval": 7,
+            "atTime": "midnight",
+            "filename": LOG_FILE
+        }
+    },
+    "formatters":{
+        "std_out": {
+            # "format": "%(asctime)s : %(levelname)s : %(module)s : %(funcName)s : %(lineno)d : (Process Details : (%(process)d, %(processName)s), Thread Details : (%(thread)d, %(threadName)s))\nLog : %(message)s",
+            "format": LOG_FORMAT,
+            # "datefmt":"%d-%m-%Y %I:%M:%S.%f"
+        }
+    },
+}
+
+config.dictConfig(log_config)
+logger = logging.getLogger(__name__)
+
+def setup_logger(name, log_file=None, level=logging.INFO, formatter = LOG_FORMATTER, log_to_stdout = False):
     """To setup as many loggers as you want"""
 
-    logging.handlers.TimedRotatingFileHandler(log_file, backupCount=6, when='D', interval=7, atTime='midnight'), # weekly rotation
-    file_handler = logging.FileHandler(log_file)        
-    file_handler.setFormatter(formatter)
-
     logger = logging.getLogger(name)
-    add_logger(logger, file_handler, level)
+
+    if log_file is not None:
+        logging.handlers.TimedRotatingFileHandler(log_file, backupCount=6, when='D', interval=7, atTime='midnight'), # weekly rotation
+        file_handler = logging.FileHandler(log_file)        
+        file_handler.setFormatter(formatter)
+
+        add_logger(logger, file_handler, level)
     
     if log_to_stdout:
         stream_handler = logging.StreamHandler(sys.stdout)
@@ -57,15 +95,7 @@ def add_logger(logger, handler, level):
     logger.setLevel(level)
     logger.addHandler(handler)
     
-logger = setup_logger(__name__, LOG_FILE, log_to_stdout = True)
 audit_logger = setup_logger("audit", AUDIT_LOG_FILE)
-"""
-coloredlogs.install(
-    level=os.getenv("LOG_LEVEL", "INFO"),
-    fmt=LOG_FORMATTER,
-    logger=logger
-)
-"""
 
 import requests
 from flask import Flask
