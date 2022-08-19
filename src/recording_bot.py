@@ -31,46 +31,15 @@ load_dotenv(find_dotenv())
 
 import logging
 import logging.handlers
-from logging import config
+from logging import config as logging_config
 
 LOG_FILE = "/log/debug.log"
 AUDIT_LOG_FILE = "/log/audit.log"
 LOG_FORMATTER = logging.Formatter("%(asctime)s  [%(levelname)7s]  [%(module)s.%(name)s.%(funcName)s]:%(lineno)s %(message)s")
 LOG_FORMAT = "%(asctime)s  [%(levelname)7s]  [%(module)s.%(name)s.%(funcName)s]:%(lineno)s %(message)s"
 
-log_config = {
-    "version":1,
-    "root":{
-        "handlers" : ["console", "file"],
-        "level": "DEBUG"
-    },
-    "handlers":{
-        "console":{
-            "formatter": "std_out",
-            "class": "logging.StreamHandler",
-            "level": "DEBUG"
-        },
-        "file": {
-            "formatter": "std_out",
-            "class": "logging.handlers.TimedRotatingFileHandler",
-            "backupCount": 6, 
-            "when": "D",
-            "interval": 7,
-            "atTime": "midnight",
-            "filename": LOG_FILE
-        }
-    },
-    "formatters":{
-        "std_out": {
-            # "format": "%(asctime)s : %(levelname)s : %(module)s : %(funcName)s : %(lineno)d : (Process Details : (%(process)d, %(processName)s), Thread Details : (%(thread)d, %(threadName)s))\nLog : %(message)s",
-            "format": LOG_FORMAT,
-            # "datefmt":"%d-%m-%Y %I:%M:%S.%f"
-        }
-    },
-}
-
-config.dictConfig(log_config)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 def setup_logger(name, log_file=None, level=logging.INFO, formatter = LOG_FORMATTER, log_to_stdout = False):
     """To setup as many loggers as you want"""
@@ -95,14 +64,9 @@ def add_logger(logger, handler, level):
     logger.setLevel(level)
     logger.addHandler(handler)
     
-audit_logger = setup_logger("audit", AUDIT_LOG_FILE)
-
 import requests
 from flask import Flask
 import oauth_grant_flow as oauth
-oauth.webex_scope = oauth.WBX_MEETINGS_RECORDING_READ_SCOPE
-oauth.webex_token_storage_path = "/token_storage/data/"
-oauth.webex_token_key = "recording_bot"
 
 # import threading
 import _thread
@@ -126,21 +90,20 @@ from webexteamssdk.models.immutable import AttachmentAction, Message
 from webex_bot.models.command import Command, COMMAND_KEYWORD_KEY
 from webex_bot.models.response import Response, response_from_adaptive_card
 from webex_bot.commands.help import HelpCommand, HELP_COMMAND_KEYWORD
-from webex_bot.webex_bot import WebexBot
+# from webex_bot.webex_bot import WebexBot
+from webex_bot_ws_wh import WebexBotWsWh, BotMode
 from webex_bot.websockets.webex_websocket_client import DEFAULT_DEVICE_URL
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent
 
 MEETING_REC_RANGE = 10 # days to look back for meetings
-CONFIG_FILE = "/config/config.json"
+CONFIG_FILE = "config.json"
 DEFAULT_CONFIG_FILE = "./default-config.json"
 
 flask_app = Flask(__name__)
 flask_app.config["DEBUG"] = True
 requests.packages.urllib3.disable_warnings()
-
-flask_app.register_blueprint(oauth.webex_oauth, url_prefix = "/webex")
 
 def get_last_meeting_id(meeting_num, actor_email, host_email = "", days_back_range = MEETING_REC_RANGE):
     logger.debug("entering")
@@ -693,11 +656,21 @@ def load_config(cfg_file = CONFIG_FILE):
         logger.debug(f"config file: {e}")
         logger.info(f"copy {DEFAULT_CONFIG_FILE} to {cfg_file}")
         shutil.copy2(DEFAULT_CONFIG_FILE, cfg_file)
+        
+# avoid having unset config parameters from app config
+    with open(DEFAULT_CONFIG_FILE) as file:
+        default_config = json.load(file)
+        logger.debug(f"default config: {default_config}")
     
     with open(cfg_file) as file:
-        config = json.load(file)
+        app_config = json.load(file)
+        logger.debug(f"app config: {app_config}")
+        
+# merge and overwrite with app_config
+    full_config = default_config | app_config
+    logger.debug(f"full config: {full_config}")
     
-    return config
+    return full_config
     
 class CfgFileEventHandler(FileSystemEventHandler):
     
@@ -711,11 +684,12 @@ class CfgFileEventHandler(FileSystemEventHandler):
         if isinstance(event, FileModifiedEvent) and self.cfg_modified_action is not None:
             self.cfg_modified_action()
         
-class WebexBotShare(WebexBot):
+class WebexBotShare(WebexBotWsWh):
     
     def __init__(self,
         teams_bot_token,
         device_url = DEFAULT_DEVICE_URL,
+        mode = BotMode.WEBSOCKET,
         config_file = CONFIG_FILE):
         
         if config_file is not None:
@@ -724,9 +698,10 @@ class WebexBotShare(WebexBot):
             self.file_observer.schedule(self.cfg_file_event_handler, config_file)
             self.file_observer.start()
         
-        WebexBot.__init__(self,
+        WebexBotWsWh.__init__(self,
             teams_bot_token,
-            device_url = device_url)
+            device_url = device_url,
+            mode = mode)
 
         self.config_file = config_file
         self.reload_config()
@@ -835,6 +810,10 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--mode", default = "webhook", help="Application mode [websocket, webhook], default: webhook")
 
     args = parser.parse_args()
+
+    config = load_config(args.config)
+    logger.info("CONFIG: {}".format(config))
+    
     log_level = logging.INFO
     if args.verbose:
         if args.verbose > 2:
@@ -844,16 +823,62 @@ if __name__ == "__main__":
         elif args.verbose > 0:
             log_level=logging.WARN
             
+    log_config = {
+        "version":1,
+        "root":{
+            "handlers" : ["console", "file"],
+            "level": log_level
+        },
+        "handlers":{
+            "console":{
+                "formatter": "std_out",
+                "class": "logging.StreamHandler",
+                "level": log_level
+            },
+            "file": {
+                "formatter": "std_out",
+                "class": "logging.handlers.TimedRotatingFileHandler",
+                "backupCount": 6, 
+                "when": "D",
+                "interval": 7,
+                "atTime": "midnight",
+                "filename": config["log_file"],
+                "level": log_level
+            }
+        },
+        "formatters":{
+            "std_out": {
+                # "format": "%(asctime)s : %(levelname)s : %(module)s : %(funcName)s : %(lineno)d : (Process Details : (%(process)d, %(processName)s), Thread Details : (%(thread)d, %(threadName)s))\nLog : %(message)s",
+                "format": LOG_FORMAT,
+                # "datefmt":"%d-%m-%Y %I:%M:%S.%f"
+            }
+        },
+    }
+
+    logging_config.dictConfig(log_config)
+    audit_logger = setup_logger("audit", config["audit_log_file"])
+
+    """
     loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
     for lgr in loggers:
         # logger.info(f"setting {lgr} to {log_level}")
         lgr.setLevel(log_level)
     logger.info(f"Logging level: {logging.getLogger(__name__).getEffectiveLevel()}")
+    """
+    
+    oauth.webex_scope = oauth.WBX_MEETINGS_RECORDING_READ_SCOPE
+    oauth.webex_token_storage_path = config["token_storage_path"]
+    oauth.webex_token_key = "recording_bot"
+    flask_app.register_blueprint(oauth.webex_oauth, url_prefix = "/webex")
     
     locale_strings = localization_strings.LOCALES[args.language]
     
-    config = load_config(cfg_file = args.config)
-    logger.info("CONFIG: {}".format(config))
+    app_mode = BotMode.WEBSOCKET
+    if args.mode.lower() == "webhook":
+        app_mode = BotMode.WEBHOOK
+    elif not args.mode.lower() in ("websocket", "webhook"):
+        logger.error(f"Invalid application mode \"{args.mode}\"")
+        sys.exit(1)
     
     # threading.Thread(target=lambda: flask_app.run(host="0.0.0.0", port=5050, ssl_context="adhoc", debug=True, use_reloader=False)).start()
     # threading.Thread(target=lambda: flask_app.run(host="0.0.0.0", port=5050, debug=True, use_reloader=False)).start()
@@ -864,7 +889,7 @@ if __name__ == "__main__":
     loop.run_until_complete(start_runner())
     
     # Create a Bot Object
-    bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"), config_file = args.config)
+    bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"), config_file = args.config, mode = app_mode)
 
     # Add new commands for the bot to listen out for.
     bot.add_command(RecordingCommand(bot))
