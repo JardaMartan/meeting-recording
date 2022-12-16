@@ -400,6 +400,8 @@ class RecordingCommand(Command):
                 
                 meeting_list, msg = get_meeting_id_list(meeting_num, actor_email, host_email = host_email, days_back_range = days_back)
                 if meeting_list is not None and len(meeting_list) > 0:
+                    host_email = meeting_list[0].get("hostEmail")
+                    logger.info(f"host e-mail: {host_email}, actor e-mail {actor_email}")
                     if self.bot.respond_only_to_host and actor_email.lower() != host_email.lower():
                         logger.debug(f"Actor {actor_email} not a host of the meeting {meeting_num}, rejecting request.")
                         response = Response()
