@@ -3,7 +3,7 @@
   "approved_users": [],
   "respond_only_to_host": false,
   "protect_pmr": true,
-  "log_file": "/log/debug.log",
+  "_log_file": "/log/debug.log",
   "audit_log_file": "/log/audit.log",
   "token_storage_path": "/token_storage/data",
   "options": {}

@@ -65,7 +65,7 @@ def add_logger(logger, handler, level):
     logger.addHandler(handler)
     
 import requests
-from flask import Flask
+from flask import Flask, url_for, request
 import oauth_grant_flow as oauth
 
 # import threading
@@ -777,7 +777,7 @@ class WebexBotShare(WebexBotWsWh):
 Independent thread startup, see:
 https://networklore.com/start-task-with-flask/
 """
-async def start_runner():
+async def start_runner(config_file = None):
     async def start_loop():
         no_proxies = {
           "http": None,
@@ -787,7 +787,7 @@ async def start_runner():
         while not_started:
             logger.info("In start loop")
             try:
-                r = requests.get("http://127.0.0.1:5050/webex/authdone", proxies=no_proxies, verify=False)
+                r = requests.get("http://127.0.0.1:5050/startup" + (f"?config_file={config_file}" if config_file is not None else ""), proxies=no_proxies, verify=False)
                 if r.status_code == 200:
                     logger.info("Server started, quiting start_loop")
                     not_started = False
@@ -798,51 +798,29 @@ async def start_runner():
             time.sleep(2)
 
     logger.info("Started runner")
+    flask_app.register_blueprint(oauth.webex_oauth, url_prefix = "/webex")
     await start_loop()
-
-if __name__ == "__main__":
-    import argparse
     
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-v", "--verbose", action="count", help="Set logging level by number of -v's, -v=WARN, -vv=INFO, -vvv=DEBUG")
-    parser.add_argument("-l", "--language", default = "en_US", help="Language (see localization_strings.LANGUAGE), default: cs_CZ")
-    parser.add_argument("-c", "--config", default = CONFIG_FILE, help=f"Configuration file, default: {CONFIG_FILE}")
-    parser.add_argument("-m", "--mode", default = "webhook", help="Application mode [websocket, webhook], default: webhook")
+@flask_app.route("/startup", methods=["GET"])
+def startup():
+    config_file = request.args.get("config_file")
+    if config_file is not None:
+        config = load_config(config_file)
+    else:
+        config = load_config(DEFAULT_CONFIG_FILE)
 
-    args = parser.parse_args()
-
-    config = load_config(args.config)
     logger.info("CONFIG: {}".format(config))
-    
-    log_level = logging.INFO
-    if args.verbose:
-        if args.verbose > 2:
-            log_level=logging.DEBUG
-        elif args.verbose > 1:
-            log_level=logging.INFO
-        elif args.verbose > 0:
-            log_level=logging.WARN
-            
+        
     log_config = {
         "version":1,
         "root":{
-            "handlers" : ["console", "file"],
+            "handlers" : ["console"],
             "level": log_level
         },
         "handlers":{
             "console":{
                 "formatter": "std_out",
                 "class": "logging.StreamHandler",
-                "level": log_level
-            },
-            "file": {
-                "formatter": "std_out",
-                "class": "logging.handlers.TimedRotatingFileHandler",
-                "backupCount": 6, 
-                "when": "D",
-                "interval": 7,
-                "atTime": "midnight",
-                "filename": config["log_file"],
                 "level": log_level
             }
         },
@@ -854,9 +832,24 @@ if __name__ == "__main__":
             }
         },
     }
+    
+    if "log_file" in config.keys():
+        log_config["handlers"]["file"] = {
+            "formatter": "std_out",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "backupCount": 6, 
+            "when": "D",
+            "interval": 7,
+            "atTime": "midnight",
+            "filename": config["log_file"],
+            "level": log_level
+        }
+        log_config["root"]["handlers"].append("file")
 
     logging_config.dictConfig(log_config)
-    audit_logger = setup_logger("audit", config["audit_log_file"])
+
+    if "audit_log_file" in config.keys():
+        audit_logger = setup_logger("audit", config["audit_log_file"])
 
     """
     loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
@@ -869,13 +862,34 @@ if __name__ == "__main__":
     oauth.webex_scope = oauth.WBX_MEETINGS_RECORDING_READ_SCOPE
     oauth.webex_token_storage_path = config["token_storage_path"]
     oauth.webex_token_key = "recording_bot"
-    flask_app.register_blueprint(oauth.webex_oauth, url_prefix = "/webex")
     
+    return "OK"
+    
+if __name__ == "__main__":
+    import argparse
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-v", "--verbose", action="count", help="Set logging level by number of -v's, -v=WARN, -vv=INFO, -vvv=DEBUG")
+    parser.add_argument("-l", "--language", default = "en_US", help="Language (see localization_strings.LANGUAGE), default: cs_CZ")
+    parser.add_argument("-m", "--mode", default = "webhook", help="Application mode [websocket, webhook], default: webhook")
+    parser.add_argument("-c", "--config", default = "config.json", help="Configuration file, default: config.json")
+
+    args = parser.parse_args()
+
+    log_level = logging.INFO
+    if args.verbose:
+        if args.verbose > 2:
+            log_level=logging.DEBUG
+        elif args.verbose > 1:
+            log_level=logging.INFO
+        elif args.verbose > 0:
+            log_level=logging.WARN
+            
     locale_strings = localization_strings.LOCALES[args.language]
     
-    app_mode = BotMode.WEBSOCKET
-    if args.mode.lower() == "webhook":
-        app_mode = BotMode.WEBHOOK
+    app_mode = BotMode.WEBHOOK
+    if args.mode.lower() == "websocket":
+        app_mode = BotMode.WEBSOCKET
     elif not args.mode.lower() in ("websocket", "webhook"):
         logger.error(f"Invalid application mode \"{args.mode}\"")
         sys.exit(1)
@@ -886,7 +900,7 @@ if __name__ == "__main__":
     # flask_app.run(host="0.0.0.0", port=5050, ssl_context="adhoc")
     
     loop = asyncio.get_event_loop()    
-    loop.run_until_complete(start_runner())
+    loop.run_until_complete(start_runner(args.config))
     
     # Create a Bot Object
     bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"), config_file = args.config, mode = app_mode)
