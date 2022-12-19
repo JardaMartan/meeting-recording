@@ -723,7 +723,7 @@ class WebexBotShare(WebexBot):
         meeting_id = share_object["meetingInstanceId"]
         meeting_details = get_meeting_details(meeting_id)
         host_email = meeting_details["hostEmail"]
-        meeting_num = meeting_details["meetingNumber"]
+        meeting_num = meeting_details.get("meetingNumber")
         logger.info(f"Recording shared for meeting id {meeting_id} hosted by {host_email}")
 
         if self.respond_only_to_host and actor_email.lower() != host_email.lower():
@@ -785,6 +785,7 @@ if __name__ == "__main__":
     parser.add_argument("-v", "--verbose", action="count", help="Set logging level by number of -v's, -v=WARN, -vv=INFO, -vvv=DEBUG")
     parser.add_argument("-l", "--language", default = "en_US", help="Language (see localization_strings.LANGUAGE), default: cs_CZ")
     parser.add_argument("-c", "--config", default = CONFIG_FILE, help=f"Configuration file, default: {CONFIG_FILE}")
+    parser.add_argument("-m", "--mode", default = "webhook", help="Application mode [websocket, webhook], default: webhook")
 
     args = parser.parse_args()
     log_level = logging.INFO
