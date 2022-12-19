@@ -822,7 +822,7 @@ if __name__ == "__main__":
     
     locale_strings = localization_strings.LOCALES[args.language]
     
-    config = load_config()
+    config = load_config(cfg_file = args.config)
     logger.info("CONFIG: {}".format(config))
     
     # threading.Thread(target=lambda: flask_app.run(host="0.0.0.0", port=5050, ssl_context="adhoc", debug=True, use_reloader=False)).start()
