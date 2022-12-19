@@ -784,6 +784,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-v", "--verbose", action="count", help="Set logging level by number of -v's, -v=WARN, -vv=INFO, -vvv=DEBUG")
     parser.add_argument("-l", "--language", default = "en_US", help="Language (see localization_strings.LANGUAGE), default: cs_CZ")
+    parser.add_argument("-c", "--config", default = CONFIG_FILE, help=f"Configuration file, default: {CONFIG_FILE}")
 
     args = parser.parse_args()
     log_level = logging.INFO
@@ -815,7 +816,7 @@ if __name__ == "__main__":
     loop.run_until_complete(start_runner())
     
     # Create a Bot Object
-    bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"), config_file = CONFIG_FILE)
+    bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"), config_file = args.config)
 
     # Add new commands for the bot to listen out for.
     bot.add_command(RecordingCommand(bot))
