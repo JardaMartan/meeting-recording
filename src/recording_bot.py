@@ -79,6 +79,7 @@ import _thread
 import time
 import json
 import re
+import base64
 from dateutil import parser as date_parser
 from datetime import datetime, timedelta
 
@@ -341,6 +342,8 @@ class RecordingCommand(Command):
         :return: a string or Response object. Use Response if you want to return another card.
         """
         actor_email = activity["actor"]["emailAddress"]
+        actor_uuid = activity["actor"]["entryUUID"]
+        actor_id = get_actor_id(actor_uuid)
         logger.debug(f"Execute with message: {message}, attachement actions: {attachment_actions}, activity: {activity}")
         try:
             if isinstance(attachment_actions, AttachmentAction):
@@ -401,9 +404,11 @@ class RecordingCommand(Command):
                 meeting_list, msg = get_meeting_id_list(meeting_num, actor_email, host_email = host_email, days_back_range = days_back)
                 if meeting_list is not None and len(meeting_list) > 0:
                     host_email = meeting_list[0].get("hostEmail")
-                    logger.info(f"host e-mail: {host_email}, actor e-mail {actor_email}")
-                    if self.bot.respond_only_to_host and actor_email.lower() != host_email.lower():
-                        logger.debug(f"Actor {actor_email} not a host of the meeting {meeting_num}, rejecting request.")
+                    host_id = meeting_list[0].get("hostUserId")
+                    logger.info(f"host e-mail: {host_email}, actor e-mail {actor_email}, host Id: {host_id}, actor Id: {actor_id}")
+                    # if self.bot.respond_only_to_host and actor_email.lower() != host_email.lower():
+                    if self.bot.respond_only_to_host and actor_id != host_id:
+                        logger.debug(f"Actor {actor_email}/{actor_id} not a host of the meeting {meeting_num}, rejecting request.")
                         response = Response()
                         response.markdown = locale_strings["loc_host_only"]
                         audit_log(actor_email, host_email, meeting_num, days_back, "denied", "only host can access recordings")
@@ -518,6 +523,18 @@ class RecordingHelpCommand(HelpCommand):
 
                     hint_texts.append(hint)
         return help_actions, hint_texts
+        
+def get_actor_uuid(actor_id):
+    actor_id_decoded = base64.b64decode(actor_id + '=' * (-len(actor_id) % 4))
+    actor_uuid = actor_id_decoded.decode("ascii").split("/")[-1] # uuid is the last element of actor id
+    logger.debug(f"actor uuid: {actor_uuid}")
+    return actor_uuid
+    
+def get_actor_id(actor_uuid):
+    full_actor_id = base64.b64encode(f"ciscospark://us/PEOPLE/{actor_uuid}".encode("ascii")).decode("ascii").rstrip("=")
+    logger.debug(f"actor id: {full_actor_id}")
+    return full_actor_id
+
         
 def get_recording_response(meeting_id, host_email):
     counter = 0
