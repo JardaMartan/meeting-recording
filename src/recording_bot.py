@@ -343,7 +343,7 @@ class RecordingCommand(Command):
         """
         actor_email = activity["actor"]["emailAddress"]
         actor_uuid = activity["actor"]["entryUUID"]
-        actor_id = get_actor_id(actor_uuid)
+        actor_id = get_person_id(actor_uuid)
         logger.debug(f"Execute with message: {message}, attachement actions: {attachment_actions}, activity: {activity}")
         try:
             if isinstance(attachment_actions, AttachmentAction):
@@ -524,13 +524,13 @@ class RecordingHelpCommand(HelpCommand):
                     hint_texts.append(hint)
         return help_actions, hint_texts
         
-def get_actor_uuid(actor_id):
+def get_person_uuid(actor_id):
     actor_id_decoded = base64.b64decode(actor_id + '=' * (-len(actor_id) % 4))
     actor_uuid = actor_id_decoded.decode("ascii").split("/")[-1] # uuid is the last element of actor id
     logger.debug(f"actor uuid: {actor_uuid}")
     return actor_uuid
     
-def get_actor_id(actor_uuid):
+def get_person_id(actor_uuid):
     full_actor_id = base64.b64encode(f"ciscospark://us/PEOPLE/{actor_uuid}".encode("ascii")).decode("ascii").rstrip("=")
     logger.debug(f"actor id: {full_actor_id}")
     return full_actor_id
