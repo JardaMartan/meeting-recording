@@ -524,16 +524,16 @@ class RecordingHelpCommand(HelpCommand):
                     hint_texts.append(hint)
         return help_actions, hint_texts
         
-def get_person_uuid(actor_id):
-    actor_id_decoded = base64.b64decode(actor_id + '=' * (-len(actor_id) % 4))
-    actor_uuid = actor_id_decoded.decode("ascii").split("/")[-1] # uuid is the last element of actor id
-    logger.debug(f"actor uuid: {actor_uuid}")
-    return actor_uuid
+def get_person_uuid(person_id):
+    person_id_decoded = base64.b64decode(person_id + '=' * (-len(person_id) % 4))
+    person_uuid = person_id_decoded.decode("ascii").split("/")[-1] # uuid is the last element of person id
+    logger.debug(f"person uuid: {person_uuid}")
+    return person_uuid
     
-def get_person_id(actor_uuid):
-    full_actor_id = base64.b64encode(f"ciscospark://us/PEOPLE/{actor_uuid}".encode("ascii")).decode("ascii").rstrip("=")
-    logger.debug(f"actor id: {full_actor_id}")
-    return full_actor_id
+def get_person_id(person_uuid):
+    full_person_id = base64.b64encode(f"ciscospark://us/PEOPLE/{person_uuid}".encode("ascii")).decode("ascii").rstrip("=")
+    logger.debug(f"person id: {full_person_id}")
+    return full_person_id
 
         
 def get_recording_response(meeting_id, host_email):
