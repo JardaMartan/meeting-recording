@@ -887,6 +887,9 @@ if __name__ == "__main__":
             
     locale_strings = localization_strings.LOCALES[args.language]
     
+    config = load_config(cfg_file = args.config)
+    logger.info("CONFIG: {}".format(config))
+    
     app_mode = BotMode.WEBHOOK
     if args.mode.lower() == "websocket":
         app_mode = BotMode.WEBSOCKET
