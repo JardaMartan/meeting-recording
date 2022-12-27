@@ -17,8 +17,7 @@ class WebexBotWsWh(WebexBot):
         
         if mode is BotMode.WEBSOCKET:
             logging.debug("setting up websocket mode")
-            WebexBot.__init__(self,
-                teams_bot_token,
+            super().__init__(teams_bot_token,
                 device_url = device_url)
         elif mode is BotMode.WEBHOOK:
             logging.debug(f"setting up webhook mode")

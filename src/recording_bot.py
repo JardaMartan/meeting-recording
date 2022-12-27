@@ -272,8 +272,7 @@ class RecordingCommand(Command):
     
     def __init__(self, bot):
         logger.debug("Registering \"rec\" command")
-        super().__init__(
-            command_keyword="rec",
+        super().__init__(command_keyword="rec",
             help_message = locale_strings["loc_help"],
             card = None)
             
@@ -698,8 +697,7 @@ class WebexBotShare(WebexBotWsWh):
             self.file_observer.schedule(self.cfg_file_event_handler, config_file)
             self.file_observer.start()
         
-        WebexBotWsWh.__init__(self,
-            teams_bot_token,
+        super().__init__(teams_bot_token,
             device_url = device_url,
             mode = mode)
 
