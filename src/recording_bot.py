@@ -870,7 +870,7 @@ if __name__ == "__main__":
     parser.add_argument("-v", "--verbose", action="count", help="Set logging level by number of -v's, -v=WARN, -vv=INFO, -vvv=DEBUG")
     parser.add_argument("-l", "--language", default = "en_US", help="Language (see localization_strings.LANGUAGE), default: cs_CZ")
     parser.add_argument("-c", "--config", default = CONFIG_FILE, help=f"Configuration file, default: {CONFIG_FILE}")
-    parser.add_argument("-m", "--mode", default = "webhook", help="Application mode [websocket, webhook], default: webhook")
+    parser.add_argument("-m", "--mode", default = "websocket", help="Application mode [websocket, webhook], default: webhook")
 
     args = parser.parse_args()
 
@@ -888,13 +888,19 @@ if __name__ == "__main__":
     config = load_config(cfg_file = args.config)
     logger.info("CONFIG: {}".format(config))
     
-    app_mode = BotMode.WEBHOOK
-    if args.mode.lower() == "websocket":
-        app_mode = BotMode.WEBSOCKET
+    app_mode = BotMode.WEBSOCKET
+    if args.mode.lower() == "webhook":
+        app_mode = BotMode.WEBHOOK
     elif not args.mode.lower() in ("websocket", "webhook"):
         logger.error(f"Invalid application mode \"{args.mode}\"")
         sys.exit(1)
     
+    # Create a Bot Object
+    bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"), config_file = args.config, mode = app_mode)
+
+    # Add new commands for the bot to listen out for.
+    bot.add_command(RecordingCommand(bot))
+
     # threading.Thread(target=lambda: flask_app.run(host="0.0.0.0", port=5050, ssl_context="adhoc", debug=True, use_reloader=False)).start()
     # threading.Thread(target=lambda: flask_app.run(host="0.0.0.0", port=5050, debug=True, use_reloader=False)).start()
     _thread.start_new_thread(flask_app.run, (), {"host": "0.0.0.0", "port":5050, "debug": True, "use_reloader": False})
@@ -903,12 +909,12 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()    
     loop.run_until_complete(start_runner(args.config))
     
-    # Create a Bot Object
-    bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"), config_file = args.config, mode = app_mode)
+    if app_mode is BotMode.WEBSOCKET:
+        # Call `run` for the bot to wait for incoming messages.
+        bot.run()
+    elif app_mode is BotMode.WEBHOOK:
+        while True:
+            time.sleep(20)
+        # flask_app.run(host="0.0.0.0", port=5050, debug=True, use_reloader=False, threaded=True, ssl_context="adhoc")
 
-    # Add new commands for the bot to listen out for.
-    bot.add_command(RecordingCommand(bot))
-
-    # Call `run` for the bot to wait for incoming messages.
-    bot.run()
     loop.close()
