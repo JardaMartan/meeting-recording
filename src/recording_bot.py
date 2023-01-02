@@ -1014,54 +1014,6 @@ def startup():
 
     logger.info("CONFIG: {}".format(config))
         
-    log_config = {
-        "version":1,
-        "root":{
-            "handlers" : ["console"],
-            "level": log_level
-        },
-        "handlers":{
-            "console":{
-                "formatter": "std_out",
-                "class": "logging.StreamHandler",
-                "level": log_level
-            }
-        },
-        "formatters":{
-            "std_out": {
-                # "format": "%(asctime)s : %(levelname)s : %(module)s : %(funcName)s : %(lineno)d : (Process Details : (%(process)d, %(processName)s), Thread Details : (%(thread)d, %(threadName)s))\nLog : %(message)s",
-                "format": LOG_FORMAT,
-                # "datefmt":"%d-%m-%Y %I:%M:%S.%f"
-            }
-        },
-    }
-    
-    if "log_file" in config.keys():
-        log_config["handlers"]["file"] = {
-            "formatter": "std_out",
-            "class": "logging.handlers.TimedRotatingFileHandler",
-            "backupCount": 6, 
-            "when": "D",
-            "interval": 7,
-            "atTime": "midnight",
-            "filename": config["log_file"],
-            "level": log_level
-        }
-        log_config["root"]["handlers"].append("file")
-
-    logging_config.dictConfig(log_config)
-
-    if "audit_log_file" in config.keys():
-        audit_logger = setup_logger("audit", config["audit_log_file"])
-
-    """
-    loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
-    for lgr in loggers:
-        # logger.info(f"setting {lgr} to {log_level}")
-        lgr.setLevel(log_level)
-    logger.info(f"Logging level: {logging.getLogger(__name__).getEffectiveLevel()}")
-    """
-    
     oauth.webex_scope = oauth.WBX_MEETINGS_RECORDING_READ_SCOPE
     oauth.webex_token_storage_path = config["token_storage_path"]
     oauth.webex_token_key = "recording_bot"
@@ -1103,6 +1055,52 @@ if __name__ == "__main__":
     
     config = load_config(cfg_file = args.config)
     logger.info("CONFIG: {}".format(config))
+    
+    log_config = {
+        "version":1,
+        "root":{
+            "handlers" : ["console"],
+            "level": log_level
+        },
+        "handlers":{
+            "console":{
+                "formatter": "std_out",
+                "class": "logging.StreamHandler",
+                "level": log_level
+            }
+        },
+        "formatters":{
+            "std_out": {
+                # "format": "%(asctime)s : %(levelname)s : %(module)s : %(funcName)s : %(lineno)d : (Process Details : (%(process)d, %(processName)s), Thread Details : (%(thread)d, %(threadName)s))\nLog : %(message)s",
+                "format": LOG_FORMAT,
+                # "datefmt":"%d-%m-%Y %I:%M:%S.%f"
+            }
+        },
+    }
+    
+    if "log_file" in config.keys():
+        log_config["handlers"]["file"] = {
+            "formatter": "std_out",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "backupCount": 6, 
+            "when": "D",
+            "interval": 7,
+            "atTime": "midnight",
+            "filename": config["log_file"],
+            "level": log_level
+        }
+        log_config["root"]["handlers"].append("file")
+
+    logging_config.dictConfig(log_config)
+
+    if "audit_log_file" in config.keys():
+        audit_logger = setup_logger("audit", config["audit_log_file"])
+
+    loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+    for lgr in loggers:
+        # logger.info(f"setting {lgr} to {log_level}")
+        lgr.setLevel(log_level)
+    logger.info(f"Logging level: {logging.getLogger(__name__).getEffectiveLevel()}")
     
     app_mode = BotMode.WEBSOCKET
     if args.mode.lower() == "webhook":
