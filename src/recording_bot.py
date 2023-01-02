@@ -76,6 +76,8 @@ import re
 import base64
 from dateutil import parser as date_parser
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
+import concurrent.futures
 
 import buttons_cards as bc
 import localization_strings
@@ -97,8 +99,11 @@ from webex_bot.websockets.webex_websocket_client import DEFAULT_DEVICE_URL
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent
 
+webex_api = WebexTeamsAPI(access_token = os.getenv("BOT_ACCESS_TOKEN"))
+
 MEETING_REC_RANGE = 10 # days to look back for meetings
 CONFIG_FILE = "config.json"
+CFG_FILE_PATH = "/config/config.json"
 DEFAULT_CONFIG_FILE = "./default-config.json"
 
 flask_app = Flask(__name__)
@@ -443,6 +448,8 @@ class RecordingHelpCommand(HelpCommand):
         :param activity: activity object
         :return:
         """
+        logger.debug(f"activity: {activity}")
+        
         heading = TextBlock(self.bot_name, weight=FontWeight.BOLDER, wrap=True, size=FontSize.LARGE)
         subtitle = TextBlock(self.bot_help_subtitle, wrap=True, size=FontSize.SMALL, color=Colors.LIGHT)
 
@@ -770,7 +777,205 @@ class WebexBotShare(WebexBotWsWh):
         self.protect_pmr = config.get("protect_pmr", True)
         
         self.approval_parameters_check()
+    
+
+"""
+Handle Webex webhook events.
+"""
+@flask_app.route("/webhook", methods=["POST"])
+async def webex_webhook():
+    """
+    handle webhook events (HTTP POST)
+    
+    Returns:
+        a dummy text in order to generate HTTP "200 OK" response
+    """
+    webhook = request.get_json(silent=True)
+    logger.debug("Webhook received: {}".format(webhook))
+    res = await handle_webhook_event(webhook)
+    logger.debug(f"Webhook hadling result: {res}")
+
+    logger.debug("Webhook handling done.")
+    return "OK"
+        
+@flask_app.route("/webhook", methods=["GET"])
+def webex_webhook_preparation():
+    """
+    (re)create webhook registration
+    
+    The request URL is taken as a target URL for the webhook registration. Once
+    the application is running, open this target URL in a web browser
+    and the Bot registers all the necessary webhooks for its operation. Existing
+    webhooks are deleted.
+    
+    Returns:
+        a web page with webhook setup confirmation
+    """
+    bot_info = get_bot_info()
+    message = "<center><img src=\"{0}\" alt=\"{1}\" style=\"width:256; height:256;\"</center>" \
+              "<center><h2><b>Congratulations! Your <i style=\"color:#ff8000;\">{1}</i> bot is up and running.</b></h2></center>".format(bot_info.avatar, bot_info.displayName)
+              
+    message += "<center><b>I'm hosted at: <a href=\"{0}\">{0}</a></center>".format(request.url)
+    res = loop.run_until_complete(manage_webhooks(request.url))
+    if res is True:
+        message += "<center><b>New webhook created sucessfully</center>"
+    else:
+        message += "<center><b>Tried to create a new webhook but failed, see application log for details.</center>"
+
+    return message
+        
+# @task
+async def handle_webhook_event(webhook):
+    """
+    handle "messages" and "membership" events
+    
+    Messages are replicated to target Spaces based on the Bot configuration.
+    Membership checks the Bot configuration and eventualy posts a message and removes the Bot from the Space.
+    """
+    action_list = []
+    
+    if webhook.get("resource") == "messages" and webhook.get("event") == "created":
+        logger.debug(f"message received")
+        
+        # make sure Bot object is initialized
+        bot = init_bot()
+        
+        message_id = webhook["data"]["id"]
+        activity = create_activity(webhook)
+        webex_message = bot.teams.messages.get(message_id)
+        logger.debug(f"processing message {message_id}")
+        bot.process_incoming_message(teams_message=webex_message, activity=activity)
+
+        """"
+        if msg['data']['eventType'] == 'conversation.activity':
+            activity = msg['data']['activity']
+            if activity['verb'] == 'post':
+                logger.debug(f"activity={activity}")
+
+                message_base_64_id = self._get_base64_message_id(activity)
+                webex_message = self.teams.messages.get(message_base_64_id)
+                logger.debug(f"webex_message from message_base_64_id: {webex_message}")
+                if self.on_message:
+                    # ack message first
+                    self._ack_message(message_base_64_id)
+                    # Now process it with the handler
+                    self.on_message(teams_message=webex_message, activity=activity)
+            elif activity['verb'] == 'cardAction':
+                logger.debug(f"activity={activity}")
+
+                message_base_64_id = self._get_base64_message_id(activity)
+                attachment_actions = self.teams.attachment_actions.get(message_base_64_id)
+                logger.info(f"attachment_actions from message_base_64_id: {attachment_actions}")
+                if self.on_card_action:
+                    # ack message first
+                    self._ack_message(message_base_64_id)
+                    # Now process it with the handler
+                    self.on_card_action(attachment_actions=attachment_actions, activity=activity)
+            else:
+                logger.debug(f"activity verb is: {activity['verb']} ")
+            """
+
+def create_activity(webhook):
+    activity = {
+        'verb': 'post',
+        'actor': {'id': 'jmartan@cisco.com', 'objectType': 'person', 'displayName': 'Jaroslav Martan', 'orgId': '1eb65fdf-9643-417f-9974-ad72cae0e10f', 'emailAddress': 'jmartan@cisco.com', 'entryUUID': '631e8442-6a57-45e0-b227-cad5cad2d91d', 'type': 'PERSON'},
+        'target': {'tags': ['ONE_ON_ONE']}
+    }
+    
+    return activity
                 
+async def manage_webhooks(target_url):
+    """
+    create a set of webhooks for the Bot
+    webhooks are defined according to the resource_events dict
+    
+    Args:
+        target_url: full URL to be set for the webhook
+    """
+    myUrlParts = urlparse(target_url)
+    # target_url = secure_scheme(myUrlParts.scheme) + "://" + myUrlParts.netloc + url_for("webex_webhook")
+    target_url = myUrlParts.scheme + "://" + myUrlParts.netloc + url_for("webex_webhook")
+
+    logger.debug("Create new webhook to URL: {}".format(target_url))
+    
+    resource_events = {
+        "messages": ["created"],
+        "memberships": ["created", "deleted", "updated"],
+        "rooms": ["updated"]
+        # "attachmentActions": ["created"]
+    }
+    status = None
+        
+    try:
+        check_webhook = webex_api.webhooks.list()
+    except ApiError as e:
+        logger.error("Webhook list failed: {}.".format(e))
+
+    local_loop = asyncio.get_event_loop()
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        wh_task_list = []
+        for webhook in check_webhook:
+            wh_task_list.append(local_loop.run_in_executor(executor, delete_webhook, webhook))
+            
+        await asyncio.gather(*wh_task_list)
+                
+        wh_task_list = []
+        for resource, events in resource_events.items():
+            for event in events:
+                wh_task_list.append(local_loop.run_in_executor(executor, create_webhook, resource, event, target_url))
+                
+        result = True
+        for status in await asyncio.gather(*wh_task_list):
+            if not status:
+                result = False
+                
+    return result
+    
+def delete_webhook(webhook):
+    logger.debug(f"Deleting webhook {webhook.id}, '{webhook.id}', App Id: {webhook.appId}")
+    try:
+        if not flask_app.testing:
+            logger.debug(f"Start webhook {webhook.id} delete")
+            webex_api.webhooks.delete(webhook.id)
+            logger.debug(f"Webhook {webhook.id} deleted")
+    except ApiError as e:
+        logger.error("Webhook {} delete failed: {}.".format(webhook.id, e))
+
+def create_webhook(resource, event, target_url):
+    logger.debug(f"Creating for {resource,event}")
+    status = False
+    try:
+        if not flask_app.testing:
+            result = webex_api.webhooks.create(name="Webhook for event \"{}\" on resource \"{}\"".format(event, resource), targetUrl=target_url, resource=resource, event=event)
+        status = True
+        logger.debug(f"Webhook for {resource}/{event} was successfully created with id: {result.id}")
+    except ApiError as e:
+        logger.error("Webhook create failed: {}.".format(e))
+        
+    return status
+    
+def secure_scheme(scheme):
+    return re.sub(r"^http$", "https", scheme)
+
+def get_bot_info():
+    """
+    get People info of the Bot
+    
+    Returns:
+        People object of the Bot itself
+    """
+    try:
+        me = webex_api.people.me()
+        if me.avatar is None:
+            me.avatar = DEFAULT_AVATAR_URL
+            
+        # logger.debug("Bot info: {}".format(me))
+        
+        return me
+    except ApiError as e:
+        logger.error("Get bot info error, code: {}, {}".format(e.status_code, e.message))
+                            
 """
 Independent thread startup, see:
 https://networklore.com/start-task-with-flask/
@@ -863,6 +1068,17 @@ def startup():
     
     return "OK"
     
+def init_bot(config_file = CFG_FILE_PATH, mode = BotMode.WEBHOOK):
+    
+    logger.debug(f"init bot in mode {mode} and config at {config_file}")
+    # Create a Bot Object
+    bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"), config_file = config_file, mode = mode)
+
+    # Add new commands for the bot to listen out for.
+    bot.add_command(RecordingCommand(bot))
+    
+    return bot
+    
 if __name__ == "__main__":
     import argparse
     
@@ -870,7 +1086,7 @@ if __name__ == "__main__":
     parser.add_argument("-v", "--verbose", action="count", help="Set logging level by number of -v's, -v=WARN, -vv=INFO, -vvv=DEBUG")
     parser.add_argument("-l", "--language", default = "en_US", help="Language (see localization_strings.LANGUAGE), default: cs_CZ")
     parser.add_argument("-c", "--config", default = CONFIG_FILE, help=f"Configuration file, default: {CONFIG_FILE}")
-    parser.add_argument("-m", "--mode", default = "websocket", help="Application mode [websocket, webhook], default: webhook")
+    parser.add_argument("-m", "--mode", default = "websocket", help="Application mode [websocket, webhook], default: websocket")
 
     args = parser.parse_args()
 
@@ -895,11 +1111,7 @@ if __name__ == "__main__":
         logger.error(f"Invalid application mode \"{args.mode}\"")
         sys.exit(1)
     
-    # Create a Bot Object
-    bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"), config_file = args.config, mode = app_mode)
-
-    # Add new commands for the bot to listen out for.
-    bot.add_command(RecordingCommand(bot))
+    bot = init_bot(config_file = args.config, mode = app_mode)
 
     # threading.Thread(target=lambda: flask_app.run(host="0.0.0.0", port=5050, ssl_context="adhoc", debug=True, use_reloader=False)).start()
     # threading.Thread(target=lambda: flask_app.run(host="0.0.0.0", port=5050, debug=True, use_reloader=False)).start()
