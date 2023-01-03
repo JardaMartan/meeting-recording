@@ -9,7 +9,7 @@
   ],
   "respond_only_to_host": false,
   "protect_pmr": true,
-  "_log_file": "../log/debug.log",
+  "log_file": "../log/debug.log",
   "audit_log_file": "../log/audit.log",
   "token_storage_path": "../token_storage",
   "options": {}
