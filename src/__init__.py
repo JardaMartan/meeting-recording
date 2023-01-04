@@ -1,9 +1,14 @@
 import azure.functions as func
 from pathlib import Path
 import sys
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
 path_root = Path(__file__).parents[2]
 sys.path.append(str(path_root))
-logging.info(f"path: {sys.path}")
+logger.info(f"path: {sys.path}")
 
 from recording_bot import flask_app
 
