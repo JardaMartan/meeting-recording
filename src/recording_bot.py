@@ -101,8 +101,6 @@ from webex_bot.websockets.webex_websocket_client import DEFAULT_DEVICE_URL
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent
 
-import azure.functions as func
-
 webex_api = WebexTeamsAPI(access_token = os.getenv("BOT_ACCESS_TOKEN"))
 
 MEETING_REC_RANGE = 10 # days to look back for meetings
@@ -1119,17 +1117,6 @@ def init_bot(config_file = CFG_FILE_PATH, mode = BotMode.WEBHOOK):
     bot.add_command(RecordingCommand(bot))
     
     return bot
-    
-def main(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info('Python HTTP trigger function processed a request.')
-    uri=req.params['uri']
-    with flask_app.test_client() as c:
-        doAction = {
-            "GET": c.get(uri).data,
-            "POST": c.post(uri).data
-        }
-        resp = doAction.get(req.method).decode()
-        return func.HttpResponse(resp, mimetype='text/html')
     
 if __name__ == "__main__":
     import argparse
