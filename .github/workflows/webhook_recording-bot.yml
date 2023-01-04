@@ -41,7 +41,7 @@ jobs:
         with:
           name: python-app
           path: |
-            . 
+            src/ 
             !venv/
 
   deploy:
@@ -56,7 +56,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: python-app
-          path: .
+          path: src/
 
       - name: 'Deploy to Azure Functions'
         uses: Azure/functions-action@v1
