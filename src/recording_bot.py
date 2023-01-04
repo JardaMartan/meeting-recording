@@ -33,8 +33,8 @@ import logging
 import logging.handlers
 from logging import config as logging_config
 
-LOG_FILE = "/log/debug.log"
-AUDIT_LOG_FILE = "/log/audit.log"
+LOG_FILE = os.getenv("LOG_FILE", "/log/debug.log")
+AUDIT_LOG_FILE = os.getenv("AUDIT_LOG_FILE", "/log/audit.log")
 LOG_FORMATTER = logging.Formatter("%(asctime)s  [%(levelname)7s]  [%(module)s.%(name)s.%(funcName)s]:%(lineno)s %(message)s")
 LOG_FORMAT = "%(asctime)s  [%(levelname)7s]  [%(module)s.%(name)s.%(funcName)s]:%(lineno)s %(message)s"
 
@@ -107,7 +107,7 @@ webex_api = WebexTeamsAPI(access_token = os.getenv("BOT_ACCESS_TOKEN"))
 
 MEETING_REC_RANGE = 10 # days to look back for meetings
 CONFIG_FILE = "config.json"
-CFG_FILE_PATH = "/config/config.json"
+CFG_FILE_PATH = os.getenv("CFG_FILE_PATH", "/config/config.json")
 DEFAULT_CONFIG_FILE = "./default-config.json"
 
 flask_app = Flask(__name__)
