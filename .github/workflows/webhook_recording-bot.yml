@@ -59,7 +59,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: python-app
-          path: src/
+          path: .
 
       - name: 'Deploy to Azure Functions'
         uses: Azure/functions-action@v1
