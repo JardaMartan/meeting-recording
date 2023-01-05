@@ -921,8 +921,8 @@ async def manage_webhooks(target_url):
         target_url: full URL to be set for the webhook
     """
     myUrlParts = urlparse(target_url)
-    # target_url = secure_scheme(myUrlParts.scheme) + "://" + myUrlParts.netloc + url_for("webex_webhook")
-    target_url = myUrlParts.scheme + "://" + myUrlParts.netloc + url_for("webex_webhook")
+    target_url = secure_scheme(myUrlParts.scheme) + "://" + myUrlParts.netloc + url_for("webex_webhook")
+    # target_url = myUrlParts.scheme + "://" + myUrlParts.netloc + url_for("webex_webhook")
 
     logger.debug("Create new webhook to URL: {}".format(target_url))
     
