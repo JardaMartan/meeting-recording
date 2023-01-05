@@ -38,9 +38,6 @@ AUDIT_LOG_FILE = os.getenv("AUDIT_LOG_FILE", "/log/audit.log")
 LOG_FORMATTER = logging.Formatter("%(asctime)s  [%(levelname)7s]  [%(module)s.%(name)s.%(funcName)s]:%(lineno)s %(message)s")
 LOG_FORMAT = "%(asctime)s  [%(levelname)7s]  [%(module)s.%(name)s.%(funcName)s]:%(lineno)s %(message)s"
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-
 def setup_logger(name, log_file=None, level=logging.INFO, formatter = LOG_FORMATTER, log_to_stdout = False):
     """To setup as many loggers as you want"""
 
@@ -62,9 +59,17 @@ def setup_logger(name, log_file=None, level=logging.INFO, formatter = LOG_FORMAT
     
 def add_logger(logger, handler, level):
     logger.setLevel(level)
+    remove_existing_handler(logger, handler)
     logger.addHandler(handler)
     
+def remove_existing_handler(logger, handler):
+    for h in logger.handlers:
+        if type(h) is type(handler):
+            logging.debug(f"logger {logger} already has handler {handler}, removing...")
+            logger.removeHandler(h)
+    
 audit_logger = setup_logger("audit", AUDIT_LOG_FILE)
+logger = setup_logger(__name__, LOG_FILE, level = logging.DEBUG, log_to_stdout = False)
     
 import requests
 from flask import Flask, url_for, request
@@ -110,6 +115,8 @@ DEFAULT_CONFIG_FILE = "./default-config.json"
 
 flask_app = Flask(__name__)
 flask_app.config["DEBUG"] = True
+logging.info("registering OAuth blueprint")
+flask_app.register_blueprint(oauth.webex_oauth, url_prefix = "/webex")
 requests.packages.urllib3.disable_warnings()
 
 def get_last_meeting_id(meeting_num, actor_email, host_email = "", days_back_range = MEETING_REC_RANGE):
@@ -233,7 +240,7 @@ def meeting_is_pmr(meeting_num, host_email):
     try:
         webex_api = WebexTeamsAPI(access_token = oauth.access_token())
         host_preferences = webex_api._session.get(webex_api._session.base_url+"meetingPreferences/personalMeetingRoom", {"userEmail": host_email})
-        logger.debug(f"Preferences for the meeting host {host_email} / {meeting_num}: {host_preferences}")
+        logger.debug(f"Preferences for the meeting host {host_email} / {meeting_num}: {host_preferences['telephony']}")
         pref_telephony = host_preferences.get("telephony")
         if pref_telephony:
             pmr_num = pref_telephony.get("accessCode")
@@ -651,6 +658,8 @@ def get_meeting_recordings(meeting_id, host_email):
     return result
     
 def load_config(cfg_file = CONFIG_FILE):
+    global locale_strings
+    
     """
     Load the configuration file.
     
@@ -661,7 +670,7 @@ def load_config(cfg_file = CONFIG_FILE):
     try:
         os.stat(cfg_file)
     except FileNotFoundError as e:
-        logger.debug(f"config file: {e}")
+        logger.debug(f"config file not found: {e}")
         logger.info(f"copy {DEFAULT_CONFIG_FILE} to {cfg_file}")
         shutil.copy2(DEFAULT_CONFIG_FILE, cfg_file)
         
@@ -677,6 +686,8 @@ def load_config(cfg_file = CONFIG_FILE):
 # merge and overwrite with app_config
     full_config = default_config | app_config
     logger.debug(f"full config: {full_config}")
+    
+    locale_strings = localization_strings.LOCALES[full_config.get("language", "en_US")]
     
     return full_config
     
@@ -700,18 +711,18 @@ class WebexBotShare(WebexBotWsWh):
         mode = BotMode.WEBSOCKET,
         config_file = CONFIG_FILE):
         
-        if config_file is not None:
-            self.file_observer = Observer()
-            self.cfg_file_event_handler = CfgFileEventHandler(cfg_modified_action = self.reload_config)
-            self.file_observer.schedule(self.cfg_file_event_handler, config_file)
-            self.file_observer.start()
-        
         super().__init__(teams_bot_token,
             device_url = device_url,
             mode = mode)
 
         self.config_file = config_file
         self.reload_config()
+        
+        if mode is BotMode.WEBSOCKET and config_file is not None:
+            self.file_observer = Observer()
+            self.cfg_file_event_handler = CfgFileEventHandler(cfg_modified_action = self.reload_config)
+            self.file_observer.schedule(self.cfg_file_event_handler, config_file)
+            self.file_observer.start()
         
         self.help_command = RecordingHelpCommand(self.bot_display_name, locale_strings["loc_click"], self.teams.people.me().avatar, self)
         self.commands = {self.help_command}
@@ -785,7 +796,7 @@ class WebexBotShare(WebexBotWsWh):
 Handle Webex webhook events.
 """
 @flask_app.route("/webhook", methods=["POST"])
-async def webex_webhook():
+def webex_webhook():
     """
     handle webhook events (HTTP POST)
     
@@ -794,7 +805,7 @@ async def webex_webhook():
     """
     webhook = request.get_json(silent=True)
     logger.debug("Webhook received: {}".format(webhook))
-    res = await handle_webhook_event(webhook)
+    res = handle_webhook_event(webhook)
     logger.debug(f"Webhook hadling result: {res}")
 
     logger.debug("Webhook handling done.")
@@ -818,7 +829,8 @@ def webex_webhook_preparation():
               "<center><h2><b>Congratulations! Your <i style=\"color:#ff8000;\">{1}</i> bot is up and running.</b></h2></center>".format(bot_info.avatar, bot_info.displayName)
               
     message += "<center><b>I'm hosted at: <a href=\"{0}\">{0}</a></center>".format(request.url)
-    res = loop.run_until_complete(manage_webhooks(request.url))
+    
+    res = asyncio.run(manage_webhooks(request.url))
     if res is True:
         message += "<center><b>New webhook created sucessfully</center>"
     else:
@@ -827,7 +839,7 @@ def webex_webhook_preparation():
     return message
         
 # @task
-async def handle_webhook_event(webhook):
+def handle_webhook_event(webhook):
     """
     handle "messages" and "membership" events
     
@@ -921,8 +933,10 @@ async def manage_webhooks(target_url):
         target_url: full URL to be set for the webhook
     """
     myUrlParts = urlparse(target_url)
-    target_url = secure_scheme(myUrlParts.scheme) + "://" + myUrlParts.netloc + url_for("webex_webhook")
-    # target_url = myUrlParts.scheme + "://" + myUrlParts.netloc + url_for("webex_webhook")
+    if os.getenv("SECURE_WEBHOOK_URL", None) is not None:
+        target_url = secure_scheme(myUrlParts.scheme) + "://" + myUrlParts.netloc + url_for("webex_webhook")
+    else:
+        target_url = myUrlParts.scheme + "://" + myUrlParts.netloc + url_for("webex_webhook")
 
     logger.debug("Create new webhook to URL: {}".format(target_url))
     
@@ -1009,8 +1023,8 @@ def get_bot_info():
 Independent thread startup, see:
 https://networklore.com/start-task-with-flask/
 """
-async def start_runner(config_file = None):
-    async def start_loop():
+def start_runner(config_file = None):
+    def start_loop():
         no_proxies = {
           "http": None,
           "https": None,
@@ -1030,8 +1044,7 @@ async def start_runner(config_file = None):
             time.sleep(2)
 
     logger.info("Started runner")
-    flask_app.register_blueprint(oauth.webex_oauth, url_prefix = "/webex")
-    await start_loop()
+    start_loop()
     
 @flask_app.route("/startup", methods=["GET"])
 def startup():
@@ -1093,7 +1106,7 @@ def init_app(log_level = logging.DEBUG, config_file = CFG_FILE_PATH):
         audit_logger = setup_logger("audit", config["audit_log_file"])
         
     if "log_file" in config.keys():
-        logger = setup_logger(__name__, config["log_file"], level = log_level, log_to_stdout = True)
+        logger = setup_logger(__name__, config["log_file"], level = log_level, log_to_stdout = False)
 
 
     loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
@@ -1103,6 +1116,7 @@ def init_app(log_level = logging.DEBUG, config_file = CFG_FILE_PATH):
     logger.info(f"Logging level: {logging.getLogger(__name__).getEffectiveLevel()}")
     
     logger.info("CONFIG: {}".format(config))
+    
     oauth.webex_scope = oauth.WBX_MEETINGS_RECORDING_READ_SCOPE
     oauth.webex_token_storage_path = config["token_storage_path"]
     oauth.webex_token_key = "recording_bot"
@@ -1111,19 +1125,22 @@ def init_bot(config_file = CFG_FILE_PATH, mode = BotMode.WEBHOOK):
     
     logger.debug(f"init bot in mode {mode} and config at {config_file}")
     # Create a Bot Object
-    bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"), config_file = config_file, mode = mode)
+    try:
+        bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"), config_file = config_file, mode = mode)
 
-    # Add new commands for the bot to listen out for.
-    bot.add_command(RecordingCommand(bot))
-    
-    return bot
+        # Add new commands for the bot to listen out for.
+        bot.add_command(RecordingCommand(bot))
+        
+        return bot
+    except Exception as e:
+        logging.error(f"init bot exception: {e}")
     
 if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser()
     parser.add_argument("-v", "--verbose", action="count", help="Set logging level by number of -v's, -v=WARN, -vv=INFO, -vvv=DEBUG")
-    parser.add_argument("-l", "--language", default = "en_US", help="Language (see localization_strings.LANGUAGE), default: cs_CZ")
+    parser.add_argument("-l", "--language", default = "en_US", help="Language (see localization_strings.LANGUAGE), default: en_US")
     parser.add_argument("-c", "--config", default = CONFIG_FILE, help=f"Configuration file, default: {CONFIG_FILE}")
     parser.add_argument("-m", "--mode", default = "websocket", help="Application mode [websocket, webhook], default: websocket")
 
@@ -1159,8 +1176,9 @@ if __name__ == "__main__":
     _thread.start_new_thread(flask_app.run, (), {"host": "0.0.0.0", "port":5050, "debug": True, "use_reloader": False})
     # flask_app.run(host="0.0.0.0", port=5050, ssl_context="adhoc")
     
-    loop = asyncio.get_event_loop()    
-    loop.run_until_complete(start_runner(args.config))
+    # loop = asyncio.get_event_loop()    
+    # loop.run_until_complete(start_runner(args.config))
+    start_runner(args.config)
     
     if app_mode is BotMode.WEBSOCKET:
         # Call `run` for the bot to wait for incoming messages.
@@ -1170,4 +1188,4 @@ if __name__ == "__main__":
             time.sleep(20)
         # flask_app.run(host="0.0.0.0", port=5050, debug=True, use_reloader=False, threaded=True, ssl_context="adhoc")
 
-    loop.close()
+    # loop.close()
