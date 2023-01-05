@@ -9,5 +9,6 @@
   ],
   "respond_only_to_host": false,
   "protect_pmr": true,
+  "language": "en_US",
   "options": {}
 }
