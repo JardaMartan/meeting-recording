@@ -44,8 +44,10 @@ jobs:
         with:
           name: python-app
           path: |
-            src/
-            .
+            src/*
+            config/*
+            requirements.txt
+            host.json
             !venv/
 
   deploy:
