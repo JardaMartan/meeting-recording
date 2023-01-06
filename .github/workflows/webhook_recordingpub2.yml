@@ -37,7 +37,8 @@ jobs:
         with:
           name: python-app
           path: |
-            src/* 
+            src/*
+            requirements.txt 
             !venv/
 
   deploy:
