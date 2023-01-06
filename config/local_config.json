@@ -12,5 +12,6 @@
   "log_file": "../log/debug.log",
   "audit_log_file": "../log/audit.log",
   "token_storage_path": "../token_storage",
+  "language": "en_US",
   "options": {}
 }
