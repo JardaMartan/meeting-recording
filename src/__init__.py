@@ -31,7 +31,7 @@ def root():
     if os.getenv("WEBSITE_CONTENTAZUREFILECONNECTIONSTRING", None) is not None:
         from azure.storage.fileshare import ShareFileClient
 
-        file_client = ShareFileClient.from_connection_string(conn_str=os.getenv("WEBSITE_CONTENTAZUREFILECONNECTIONSTRING"), share_name=os.getenv("WEBSITE_CONTENTSHARE"), file_path="my_path")
+        file_client = ShareFileClient.from_connection_string(conn_str=os.getenv("WEBSITE_CONTENTAZUREFILECONNECTIONSTRING"), share_name=os.getenv("WEBSITE_CONTENTSHARE"), file_path="config")
 
     lst1 = os.listdir('.')
     lst2 = os.listdir('my_path')
