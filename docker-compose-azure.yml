@@ -6,7 +6,8 @@ networks:
 services: 
   recording_bot:
     image: jardamartan/webex-recording-bot
-    command: python recording_bot.py -vvv
+    # command: python recording_bot.py -vvv
+    command: gunicorn -b 0.0.0.0:5050 --workers=5 --threads=10 --worker-class=gthread recording_bot:flask_app
     # command: tail -F anything
     container_name: recording_bot
     ports:
@@ -25,6 +26,7 @@ services:
       # syslog severity, values:
       # ALERT, CRITICAL, DEBUG, EMERGENCY, ERROR, INFO, NOTICE, WARNING
       SYSLOG_SEVERITY: "debug"
+      SECURE_WEBHOOK_URL: "yes"
       WEBEX_INTEGRATION_ID: "paste_your_integration_id"
       WEBEX_INTEGRATION_CLIENT_ID: "paste_your_integration_client_id"
       WEBEX_INTEGRATION_CLIENT_SECRET: "paste_your_integration_client_secret"
