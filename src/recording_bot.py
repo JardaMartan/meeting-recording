@@ -133,7 +133,7 @@ def get_meeting_id_list(meeting_num, actor_email, host_email = "", days_back_ran
     logger.debug(f"entering, host email: {host_email}")
     access_token = oauth.access_token()
     if access_token is None:
-        return None, None, "No access token available, please authorize the Bot first."
+        return None, "No access token available, please authorize the Bot first."
         
     webex_api = WebexTeamsAPI(access_token = access_token)
     to_time = datetime.utcnow()
