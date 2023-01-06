@@ -9,7 +9,7 @@ logger.setLevel(logging.DEBUG)
 if os.getenv("WEBSITE_CONTENTAZUREFILECONNECTIONSTRING", None) is not None:
     from azure.storage.fileshare import ShareFileClient
 
-    file_client = ShareFileClient.from_connection_string(conn_str=os.getenv("WEBSITE_CONTENTAZUREFILECONNECTIONSTRING", share_name=os.getenv("WEBSITE_CONTENTSHARE"))
+    file_client = ShareFileClient.from_connection_string(conn_str=os.getenv("WEBSITE_CONTENTAZUREFILECONNECTIONSTRING"), share_name=os.getenv("WEBSITE_CONTENTSHARE"))
     logging.error(f"{os.listdir('/')}")
 
 path_root = Path(__file__).parents[2]
