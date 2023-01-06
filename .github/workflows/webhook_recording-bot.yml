@@ -45,7 +45,6 @@ jobs:
           name: python-app
           path: |
             src/*
-            config/*
             requirements.txt
             host.json
             !venv/
