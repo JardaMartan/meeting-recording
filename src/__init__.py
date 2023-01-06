@@ -11,7 +11,7 @@ sys.path.append(str(path_root))
 logging.error(f"path: {sys.path}")
 print(f"path: {sys.path}")
 
-from recording_bot import flask_app
+from .recording_bot import flask_app
 
 def main(req: func.HttpRequest, context: func.Context) -> func.HttpResponse:
     return func.WsgiMiddleware(flask_app.wsgi_app).handle(req, context)
