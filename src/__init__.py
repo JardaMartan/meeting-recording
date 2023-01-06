@@ -34,7 +34,7 @@ def root():
         file_client = ShareFileClient.from_connection_string(conn_str=os.getenv("WEBSITE_CONTENTAZUREFILECONNECTIONSTRING"), share_name=os.getenv("WEBSITE_CONTENTSHARE"), file_path="config")
 
     lst1 = os.listdir('.')
-    lst2 = os.listdir('my_path')
+    lst2 = os.listdir('/')
     
     response = make_response(f"list1: {lst1}\nlist2: {lst2}", 200)
     response.mimetype = "text/plain"
