@@ -69,7 +69,7 @@ def remove_existing_handler(logger, handler):
             logger.removeHandler(h)
     
 audit_logger = setup_logger("audit", AUDIT_LOG_FILE)
-logger = setup_logger(__name__, LOG_FILE, level = logging.DEBUG, log_to_stdout = False)
+logger = setup_logger(__name__, LOG_FILE, level = logging.DEBUG, log_to_stdout = True)
     
 import requests
 from flask import Flask, url_for, request
