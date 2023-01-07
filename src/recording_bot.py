@@ -684,7 +684,9 @@ def load_config(cfg_file = CONFIG_FILE):
         shutil.copy2(DEFAULT_CONFIG_FILE, cfg_file)
         
 # avoid having unset config parameters from app config
-    with open(DEFAULT_CONFIG_FILE) as file:
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+
+    with open(f"{dir_path}/{DEFAULT_CONFIG_FILE}") as file:
         default_config = json.load(file)
         logger.debug(f"default config: {default_config}")
     
@@ -1072,7 +1074,7 @@ def init_app(log_level = logging.DEBUG, config_file = CFG_FILE_PATH):
     if config_file is not None:
         config = load_config(config_file)
     else:
-        config = load_config(DEFAULT_CONFIG_FILE)
+        config = load_config(f"{dir_path}/{DEFAULT_CONFIG_FILE}")
 
     """
     log_config = {
