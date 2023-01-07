@@ -76,6 +76,7 @@ from flask import Flask, url_for, request
 try:
     from . import oauth_grant_flow as oauth
 except:
+    logging.error("unable to import from .")
     import oauth_grant_flow as oauth
 
 # import threading
