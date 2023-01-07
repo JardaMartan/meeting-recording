@@ -26,7 +26,7 @@ if azure_con_str is not None and azure_content_share is not None and azure_mount
         key, value = re.findall(r"([^=]+)=(.*)", part)[0]
         azure_connection[key] = value
     logging.info(f"parsed azure connection string: {azure_connection}")
-    logging.inco(f"mounting azure content share: {azure_content_share} to {azure_mount_point}")
+    logging.info(f"mounting azure content share: {azure_content_share} to {azure_mount_point}")
     
     # az webapp config storage-account add -g Function_res -n recording-bot --storage-type AzureFiles --account-name functionres882d --access-key sQZ8ZFmvLXAMcUYM2pQE7hrK4n37Kd3eizPxmn/AN0SSYa9n4GGHlDYv0kNq+jn59h9xf1CH5Cba+AStpymn9g== --share-name recording-bota74f -i recording-bot --mount-path /data
 
