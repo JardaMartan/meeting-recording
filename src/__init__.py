@@ -23,7 +23,7 @@ if azure_con_str is not None and azure_content_share is not None and azure_mount
     azure_con_parts = azure_con_str.split(";")
     azure_connection = {}
     for part in azure_con_parts:
-        key, value = re.findall(r"([^=]+)=(.*)", part)
+        key, value = re.findall(r"([^=]+)=(.*)", part)[0]
         azure_connection[key] = value
     logging.info(f"parsed azure connection string: {azure_connection}")
     logging.inco(f"mounting azure content share: {azure_content_share} to {azure_mount_point}")
