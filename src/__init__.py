@@ -38,10 +38,14 @@ def check_share_mount():
         mount_cmd = f"webapp config storage-account add -g {azure_group_name} -n {web_site_name} --storage-type AzureFiles --account-name {azure_connection['AccountName']} --access-key {azure_connection['AccountKey']} --share-name {azure_content_share} -i {web_site_name} --mount-path {azure_mount_point}"
         logging.info(f"command: {mount_cmd}")
         credentials = DefaultAzureCredential()
-        result = get_default_cli().invoke(mount_cmd.split(" "))
-        logging.info(f"mount command result: {result}")
-        lst = os.listdir(f"{azure_mount_point}")
-        logging.info(f"content: {lst}")
+        try:
+            l = get_default_cli().invoke(["login"])
+            result = get_default_cli().invoke(mount_cmd.split(" "))
+            logging.info(f"mount command result: {result}")
+            lst = os.listdir(f"{azure_mount_point}")
+            logging.info(f"content: {lst}")
+        except Exception as e:
+            logging.info(f"cli exception: {e}")
         
         # az webapp config storage-account add -g Function_res -n recording-bot --storage-type AzureFiles --account-name functionres882d --access-key sQZ8ZFmvLXAMcUYM2pQE7hrK4n37Kd3eizPxmn/AN0SSYa9n4GGHlDYv0kNq+jn59h9xf1CH5Cba+AStpymn9g== --share-name recording-bota74f -i recording-bot --mount-path /data
 
