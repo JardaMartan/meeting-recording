@@ -74,7 +74,7 @@ logger = setup_logger(__name__, LOG_FILE, level = logging.DEBUG, log_to_stdout =
 import requests
 from flask import Flask, url_for, request
 try:
-    from . import oauth_grant_flow as oauth
+    import .oauth_grant_flow as oauth
 except:
     logging.error("unable to import from .")
     import oauth_grant_flow as oauth
@@ -91,11 +91,11 @@ from urllib.parse import urlparse
 import concurrent.futures
 
 try:
-    from . import buttons_cards as bc
+    import .buttons_cards as bc
 except:
     import buttons_cards as bc
 try:
-    from . import localization_strings
+    import .localization_strings
 except:
     import localization_strings
 locale_strings = localization_strings.LOCALES["en_US"]
