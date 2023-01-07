@@ -1,22 +1,19 @@
 import azure.functions as func
-from pathlib import Path
-import os,sys
 import logging
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-path_root = Path(__file__).parents[2]
-sys.path.append(str(path_root))
-logging.info(f"path: {sys.path}")
-print(f"path: {sys.path}")
-"""
 from .recording_bot import flask_app
 
 def main(req: func.HttpRequest, context: func.Context) -> func.HttpResponse:
+    logging.info(f"Processing a request")
     return func.WsgiMiddleware(flask_app.wsgi_app).handle(req, context)
+
+
 """
 
+import os
 from flask import Flask, redirect, make_response
 
 flask_app = Flask(__name__)
@@ -36,3 +33,4 @@ def root():
     return response
 
     # return redirect("https://www.cisco.com", code = 301)
+"""
