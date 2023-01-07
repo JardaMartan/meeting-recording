@@ -28,7 +28,7 @@ def main(req: func.HttpRequest, context: func.Context) -> func.HttpResponse:
 @flask_app.route("/")
 def root():
     lst1 = os.listdir('.')
-    lst2 = os.listdir('/')
+    lst2 = os.listdir('/data')
     logging.info(f"list1: {lst1}\n\nlist2: {lst2}")
     
     response = make_response(f"list1: {lst1}\n\nlist2: {lst2}", 200)
