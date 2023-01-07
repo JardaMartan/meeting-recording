@@ -18,9 +18,11 @@ def check_share_mount():
     web_site_name = os.getenv("WEBSITE_SITE_NAME", None)
     web_site_owner = os.getenv("WEBSITE_OWNER_NAME", None)
     logging.info(f"web site name: {web_site_name}")
+    """
     logging.info("environment:")
     for name, value in os.environ.items():
         logging.info(f"{name}: {value}")
+    """
     if azure_con_str is not None and azure_content_share is not None and azure_mount_point is not None and web_site_owner is not None:
         logging.info(f"parsing azure connection string: '{azure_con_str}'")
         azure_con_parts = azure_con_str.split(";")
@@ -36,10 +38,10 @@ def check_share_mount():
         mount_cmd = f"webapp config storage-account add -g {azure_group_name} -n {web_site_name} --storage-type AzureFiles --account-name {azure_connection['AccountName']} --access-key {azure_connection['AccountKey']} --share-name {azure_content_share} -i {web_site_name} --mount-path {azure_mount_point}"
         logging.info(f"command: {mount_cmd}")
         credentials = DefaultAzureCredential()
-        # result = get_default_cli().invoke(mount_cmd.split(" "))
-        # logging.info(f"mount command result: {result}")
-        # lst = os.listdir(f"{azure_mount_point}")
-        # logging.info(f"content: {lst}")
+        result = get_default_cli().invoke(mount_cmd.split(" "))
+        logging.info(f"mount command result: {result}")
+        lst = os.listdir(f"{azure_mount_point}")
+        logging.info(f"content: {lst}")
         
         # az webapp config storage-account add -g Function_res -n recording-bot --storage-type AzureFiles --account-name functionres882d --access-key sQZ8ZFmvLXAMcUYM2pQE7hrK4n37Kd3eizPxmn/AN0SSYa9n4GGHlDYv0kNq+jn59h9xf1CH5Cba+AStpymn9g== --share-name recording-bota74f -i recording-bot --mount-path /data
 
