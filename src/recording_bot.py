@@ -1065,7 +1065,9 @@ def startup():
 def init_app(log_level = logging.DEBUG, config_file = CFG_FILE_PATH):
     global audit_logger, logger
     
-    flask_app.logger.info(f"init app, log level: {log_level}")
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+
+    flask_app.logger.info(f"init app, log level: {log_level}, path: {dir_path}")
 
     if config_file is not None:
         config = load_config(config_file)
