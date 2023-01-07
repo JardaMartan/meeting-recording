@@ -27,16 +27,11 @@ def main(req: func.HttpRequest, context: func.Context) -> func.HttpResponse:
 
 @flask_app.route("/")
 def root():
-    logging.info("request received")
-    if os.getenv("WEBSITE_CONTENTAZUREFILECONNECTIONSTRING", None) is not None:
-        from azure.storage.fileshare import ShareFileClient
-
-        file_client = ShareFileClient.from_connection_string(conn_str=os.getenv("WEBSITE_CONTENTAZUREFILECONNECTIONSTRING"), share_name=os.getenv("WEBSITE_CONTENTSHARE"), file_path="config")
-
     lst1 = os.listdir('.')
     lst2 = os.listdir('/')
+    logging.info(f"list1: {lst1}\n\nlist2: {lst2}")
     
-    response = make_response(f"list1: {lst1}\nlist2: {lst2}", 200)
+    response = make_response(f"list1: {lst1}\n\nlist2: {lst2}", 200)
     response.mimetype = "text/plain"
     return response
 
