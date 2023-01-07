@@ -73,7 +73,10 @@ logger = setup_logger(__name__, LOG_FILE, level = logging.DEBUG, log_to_stdout =
     
 import requests
 from flask import Flask, url_for, request
-import oauth_grant_flow as oauth
+try:
+    from . import oauth_grant_flow as oauth
+except:
+    import oauth_grant_flow as oauth
 
 # import threading
 import _thread
@@ -86,8 +89,14 @@ from datetime import datetime, timedelta
 from urllib.parse import urlparse
 import concurrent.futures
 
-import buttons_cards as bc
-import localization_strings
+try:
+    from . import buttons_cards as bc
+except:
+    import buttons_cards as bc
+try:
+    from . import localization_strings
+except:
+    import localization_strings
 locale_strings = localization_strings.LOCALES["en_US"]
 
 from webexteamssdk import WebexTeamsAPI, ApiError
