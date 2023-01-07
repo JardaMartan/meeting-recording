@@ -120,7 +120,7 @@ webex_api = WebexTeamsAPI(access_token = os.getenv("BOT_ACCESS_TOKEN"))
 MEETING_REC_RANGE = 10 # days to look back for meetings
 CONFIG_FILE = "config.json"
 CFG_FILE_PATH = os.getenv("CFG_FILE_PATH", "/config/config.json")
-DEFAULT_CONFIG_FILE = "./default-config.json"
+DEFAULT_CONFIG_FILE = "default-config.json"
 
 flask_app = Flask(__name__)
 flask_app.config["DEBUG"] = True
