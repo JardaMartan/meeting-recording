@@ -841,7 +841,9 @@ def webex_webhook_preparation():
               
     message += "<center><b>I'm hosted at: <a href=\"{0}\">{0}</a></center>".format(request.url)
     
-    res = asyncio.run(manage_webhooks(request.url))
+    del_wh = request.args.get('delete')
+    logger.debug(f"delete webhook: {del_wh}")
+    res = asyncio.run(manage_webhooks(request.url, delete = del_wh is not None))
     if res is True:
         message += "<center><b>New webhook created sucessfully</center>"
     else:
@@ -935,7 +937,7 @@ def create_activity(webex_api, webhook):
     logger.debug(f"activity created: {activity}")
     return activity
                 
-async def manage_webhooks(target_url):
+async def manage_webhooks(target_url, delete = False):
     """
     create a set of webhooks for the Bot
     webhooks are defined according to the resource_events dict
@@ -973,16 +975,19 @@ async def manage_webhooks(target_url):
             wh_task_list.append(local_loop.run_in_executor(executor, delete_webhook, webhook))
             
         await asyncio.gather(*wh_task_list)
-                
-        wh_task_list = []
-        for resource, events in resource_events.items():
-            for event in events:
-                wh_task_list.append(local_loop.run_in_executor(executor, create_webhook, resource, event, target_url))
-                
-        result = True
-        for status in await asyncio.gather(*wh_task_list):
-            if not status:
-                result = False
+        
+        if not delete:
+            wh_task_list = []
+            for resource, events in resource_events.items():
+                for event in events:
+                    wh_task_list.append(local_loop.run_in_executor(executor, create_webhook, resource, event, target_url))
+                    
+            result = True
+            for status in await asyncio.gather(*wh_task_list):
+                if not status:
+                    result = False
+        else:
+            result = True
                 
     return result
     
