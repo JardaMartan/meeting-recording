@@ -759,7 +759,7 @@ class WebexBotShare(WebexBotWsWh):
                     self._ack_message(message_base_64_id)
                     
                     user_email = webex_message.personEmail
-                    if self.check_user_approved(user_email=user_email):
+                    if self.check_user_approved(user_email=user_email, approved_rooms=[]):
                         self.process_recording_share(webex_message, activity)
                 else:
                     super()._process_incoming_websocket_message(msg)
@@ -842,10 +842,14 @@ def webex_webhook_preparation():
     message += "<center><b>I'm hosted at: <a href=\"{0}\">{0}</a></center>".format(request.url)
     
     del_wh = request.args.get('delete')
+    delete_only = del_wh is not None
     logger.debug(f"delete webhook: {del_wh}")
-    res = asyncio.run(manage_webhooks(request.url, delete = del_wh is not None))
+    res = asyncio.run(manage_webhooks(request.url, delete = delete_only))
     if res is True:
-        message += "<center><b>New webhook created sucessfully</center>"
+        if delete_only:
+            message += "<center><b>Webhooks deleted sucessfully</center>"
+        else:
+            message += "<center><b>New webhook created sucessfully</center>"
     else:
         message += "<center><b>Tried to create a new webhook but failed, see application log for details.</center>"
 
@@ -954,11 +958,11 @@ async def manage_webhooks(target_url, delete = False):
     logger.debug("Create new webhook to URL: {}".format(target_url))
     
     resource_events = {
+        # "all": ["all"],
         "messages": ["created"],
         "memberships": ["created", "deleted", "updated"],
         "rooms": ["updated"],
         "attachmentActions": ["created"]
-        # "attachmentActions": ["created"]
     }
     status = None
         
