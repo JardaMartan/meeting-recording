@@ -29,22 +29,26 @@ from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 """
 
-import logging, coloredlogs
+import logging
 import logging.handlers
+from logging import config as logging_config
 
-LOG_FILE = "/log/debug.log"
-AUDIT_LOG_FILE = "/log/audit.log"
+LOG_FILE = os.getenv("LOG_FILE", "/log/debug.log")
+AUDIT_LOG_FILE = os.getenv("AUDIT_LOG_FILE", "/log/audit.log")
 LOG_FORMATTER = logging.Formatter("%(asctime)s  [%(levelname)7s]  [%(module)s.%(name)s.%(funcName)s]:%(lineno)s %(message)s")
+LOG_FORMAT = "%(asctime)s  [%(levelname)7s]  [%(module)s.%(name)s.%(funcName)s]:%(lineno)s %(message)s"
 
-def setup_logger(name, log_file, level=logging.INFO, formatter = LOG_FORMATTER, log_to_stdout = False):
+def setup_logger(name, log_file=None, level=logging.INFO, formatter = LOG_FORMATTER, log_to_stdout = False):
     """To setup as many loggers as you want"""
 
-    logging.handlers.TimedRotatingFileHandler(log_file, backupCount=6, when='D', interval=7, atTime='midnight'), # weekly rotation
-    file_handler = logging.FileHandler(log_file)        
-    file_handler.setFormatter(formatter)
-
     logger = logging.getLogger(name)
-    add_logger(logger, file_handler, level)
+
+    if log_file is not None:
+        logging.handlers.TimedRotatingFileHandler(log_file, backupCount=6, when='D', interval=7, atTime='midnight'), # weekly rotation
+        file_handler = logging.FileHandler(log_file)        
+        file_handler.setFormatter(formatter)
+
+        add_logger(logger, file_handler, level)
     
     if log_to_stdout:
         stream_handler = logging.StreamHandler(sys.stdout)
@@ -55,24 +59,24 @@ def setup_logger(name, log_file, level=logging.INFO, formatter = LOG_FORMATTER, 
     
 def add_logger(logger, handler, level):
     logger.setLevel(level)
+    remove_existing_handler(logger, handler)
     logger.addHandler(handler)
     
-logger = setup_logger(__name__, LOG_FILE, log_to_stdout = True)
+def remove_existing_handler(logger, handler):
+    for h in logger.handlers:
+        if type(h) is type(handler):
+            logging.debug(f"logger {logger} already has handler {handler}, removing...")
+            logger.removeHandler(h)
+    
 audit_logger = setup_logger("audit", AUDIT_LOG_FILE)
-"""
-coloredlogs.install(
-    level=os.getenv("LOG_LEVEL", "INFO"),
-    fmt=LOG_FORMATTER,
-    logger=logger
-)
-"""
-
+logger = setup_logger(__name__, LOG_FILE, level = logging.DEBUG, log_to_stdout = True)
+    
 import requests
-from flask import Flask
-import oauth_grant_flow as oauth
-oauth.webex_scope = oauth.WBX_MEETINGS_RECORDING_READ_SCOPE
-oauth.webex_token_storage_path = "/token_storage/data/"
-oauth.webex_token_key = "recording_bot"
+from flask import Flask, url_for, request
+try:
+    from . import oauth_grant_flow as oauth
+except:
+    import oauth_grant_flow as oauth
 
 # import threading
 import _thread
@@ -82,9 +86,17 @@ import re
 import base64
 from dateutil import parser as date_parser
 from datetime import datetime, timedelta
+from urllib.parse import urlparse, quote
+import concurrent.futures
 
-import buttons_cards as bc
-import localization_strings
+try:
+    from . import buttons_cards as bc
+except:
+    import buttons_cards as bc
+try:
+    from . import localization_strings
+except:
+    import localization_strings
 locale_strings = localization_strings.LOCALES["en_US"]
 
 from webexteamssdk import WebexTeamsAPI, ApiError
@@ -96,21 +108,25 @@ from webexteamssdk.models.immutable import AttachmentAction, Message
 from webex_bot.models.command import Command, COMMAND_KEYWORD_KEY
 from webex_bot.models.response import Response, response_from_adaptive_card
 from webex_bot.commands.help import HelpCommand, HELP_COMMAND_KEYWORD
-from webex_bot.webex_bot import WebexBot
+# from webex_bot.webex_bot import WebexBot
+from webex_bot_ws_wh import WebexBotWsWh, BotMode
 from webex_bot.websockets.webex_websocket_client import DEFAULT_DEVICE_URL
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent
 
+webex_api = WebexTeamsAPI(access_token = os.getenv("BOT_ACCESS_TOKEN"))
+
 MEETING_REC_RANGE = 10 # days to look back for meetings
-CONFIG_FILE = "/config/config.json"
-DEFAULT_CONFIG_FILE = "./default-config.json"
+CONFIG_FILE = "config.json"
+CFG_FILE_PATH = os.getenv("CFG_FILE_PATH", "/config/config.json")
+DEFAULT_CONFIG_FILE = "default-config.json"
 
 flask_app = Flask(__name__)
 flask_app.config["DEBUG"] = True
-requests.packages.urllib3.disable_warnings()
-
+logging.info("registering OAuth blueprint")
 flask_app.register_blueprint(oauth.webex_oauth, url_prefix = "/webex")
+requests.packages.urllib3.disable_warnings()
 
 def get_last_meeting_id(meeting_num, actor_email, host_email = "", days_back_range = MEETING_REC_RANGE):
     logger.debug("entering")
@@ -130,7 +146,7 @@ def get_last_meeting_id(meeting_num, actor_email, host_email = "", days_back_ran
         return None, None, "Meeting not found"
         
 def get_meeting_id_list(meeting_num, actor_email, host_email = "", days_back_range = MEETING_REC_RANGE):
-    logger.debug(f"entering, host email: {host_email}")
+    logger.debug(f"entering, meeting number: {meeting_num}, actor email: {actor_email}, host email: {host_email}")
     access_token = oauth.access_token()
     if access_token is None:
         return None, "No access token available, please authorize the Bot first."
@@ -227,13 +243,24 @@ def get_recording_details(meeting_id, host_email):
 def get_recording_urls(recording_details):
     url_list = recording_details.get("temporaryDirectDownloadLinks")
     if url_list:
-        return url_list.get("audioDownloadLink"), url_list.get("recordingDownloadLink"), url_list.get("expiration")
+        return fix_url(url_list.get("audioDownloadLink"), f"{recording_details['topic']}.mp3"), fix_url(url_list.get("recordingDownloadLink"), f"{recording_details['topic']}.mp4"), url_list.get("expiration")
+    
+def fix_url(url, add_filename):
+    parsed_url = urlparse(url)
+    logger.debug(f"path found in URL: {parsed_url.path}")
+    url_base = os.path.basename(parsed_url.path)
+    if not url_base.endswith((".mp4", ".mp3")):
+        new_path = parsed_url.path + "/" + quote(add_filename)
+        logger.info(f"fix URL path '{parsed_url.path}' to '{new_path}'")
+        return parsed_url._replace(path = new_path).geturl()
+    
+    return url
         
 def meeting_is_pmr(meeting_num, host_email):
     try:
         webex_api = WebexTeamsAPI(access_token = oauth.access_token())
         host_preferences = webex_api._session.get(webex_api._session.base_url+"meetingPreferences/personalMeetingRoom", {"userEmail": host_email})
-        logger.debug(f"Preferences for the meeting host {host_email} / {meeting_num}: {host_preferences}")
+        logger.debug(f"Preferences for the meeting host {host_email} / {meeting_num}: {host_preferences['telephony']}")
         pref_telephony = host_preferences.get("telephony")
         if pref_telephony:
             pmr_num = pref_telephony.get("accessCode")
@@ -279,8 +306,7 @@ class RecordingCommand(Command):
     
     def __init__(self, bot):
         logger.debug("Registering \"rec\" command")
-        super().__init__(
-            command_keyword="rec",
+        super().__init__(command_keyword="rec",
             help_message = locale_strings["loc_help"],
             card = None)
             
@@ -451,6 +477,8 @@ class RecordingHelpCommand(HelpCommand):
         :param activity: activity object
         :return:
         """
+        logger.debug(f"activity: {activity}")
+        
         heading = TextBlock(self.bot_name, weight=FontWeight.BOLDER, wrap=True, size=FontSize.LARGE)
         subtitle = TextBlock(self.bot_help_subtitle, wrap=True, size=FontSize.SMALL, color=Colors.LIGHT)
 
@@ -650,6 +678,8 @@ def get_meeting_recordings(meeting_id, host_email):
     return result
     
 def load_config(cfg_file = CONFIG_FILE):
+    global locale_strings
+    
     """
     Load the configuration file.
     
@@ -660,14 +690,28 @@ def load_config(cfg_file = CONFIG_FILE):
     try:
         os.stat(cfg_file)
     except FileNotFoundError as e:
-        logger.debug(f"config file: {e}")
+        logger.debug(f"config file not found: {e}")
         logger.info(f"copy {DEFAULT_CONFIG_FILE} to {cfg_file}")
         shutil.copy2(DEFAULT_CONFIG_FILE, cfg_file)
+        
+# avoid having unset config parameters from app config
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+
+    with open(f"{dir_path}/{DEFAULT_CONFIG_FILE}") as file:
+        default_config = json.load(file)
+        logger.debug(f"default config: {default_config}")
     
     with open(cfg_file) as file:
-        config = json.load(file)
+        app_config = json.load(file)
+        logger.debug(f"app config: {app_config}")
+        
+# merge and overwrite with app_config
+    full_config = default_config | app_config
+    logger.debug(f"full config: {full_config}")
     
-    return config
+    locale_strings = localization_strings.LOCALES[full_config.get("language", "en_US")]
+    
+    return full_config
     
 class CfgFileEventHandler(FileSystemEventHandler):
     
@@ -681,25 +725,26 @@ class CfgFileEventHandler(FileSystemEventHandler):
         if isinstance(event, FileModifiedEvent) and self.cfg_modified_action is not None:
             self.cfg_modified_action()
         
-class WebexBotShare(WebexBot):
+class WebexBotShare(WebexBotWsWh):
     
     def __init__(self,
         teams_bot_token,
         device_url = DEFAULT_DEVICE_URL,
+        mode = BotMode.WEBSOCKET,
         config_file = CONFIG_FILE):
         
-        if config_file is not None:
+        super().__init__(teams_bot_token,
+            device_url = device_url,
+            mode = mode)
+
+        self.config_file = config_file
+        self.reload_config()
+        
+        if mode is BotMode.WEBSOCKET and config_file is not None:
             self.file_observer = Observer()
             self.cfg_file_event_handler = CfgFileEventHandler(cfg_modified_action = self.reload_config)
             self.file_observer.schedule(self.cfg_file_event_handler, config_file)
             self.file_observer.start()
-        
-        WebexBot.__init__(self,
-            teams_bot_token,
-            device_url = device_url)
-
-        self.config_file = config_file
-        self.reload_config()
         
         self.help_command = RecordingHelpCommand(self.bot_display_name, locale_strings["loc_click"], self.teams.people.me().avatar, self)
         self.commands = {self.help_command}
@@ -725,7 +770,7 @@ class WebexBotShare(WebexBot):
                     self._ack_message(message_base_64_id)
                     
                     user_email = webex_message.personEmail
-                    if self.check_user_approved(user_email=user_email):
+                    if self.check_user_approved(user_email=user_email, approved_rooms=[]):
                         self.process_recording_share(webex_message, activity)
                 else:
                     super()._process_incoming_websocket_message(msg)
@@ -767,13 +812,250 @@ class WebexBotShare(WebexBot):
         self.protect_pmr = config.get("protect_pmr", True)
         
         self.approval_parameters_check()
+    
+
+"""
+Handle Webex webhook events.
+"""
+@flask_app.route("/webhook", methods=["POST"])
+def webex_webhook():
+    """
+    handle webhook events (HTTP POST)
+    
+    Returns:
+        a dummy text in order to generate HTTP "200 OK" response
+    """
+    webhook = request.get_json(silent=True)
+    logger.debug("Webhook received: {}".format(webhook))
+    res = handle_webhook_event(webhook)
+    logger.debug(f"Webhook hadling result: {res}")
+
+    logger.debug("Webhook handling done.")
+    return "OK"
+        
+@flask_app.route("/webhook", methods=["GET"])
+def webex_webhook_preparation():
+    """
+    (re)create webhook registration
+    
+    The request URL is taken as a target URL for the webhook registration. Once
+    the application is running, open this target URL in a web browser
+    and the Bot registers all the necessary webhooks for its operation. Existing
+    webhooks are deleted.
+    
+    Returns:
+        a web page with webhook setup confirmation
+    """
+    bot_info = get_bot_info()
+    message = "<center><img src=\"{0}\" alt=\"{1}\" style=\"width:256; height:256;\"</center>" \
+              "<center><h2><b>Congratulations! Your <i style=\"color:#ff8000;\">{1}</i> bot is up and running.</b></h2></center>".format(bot_info.avatar, bot_info.displayName)
+              
+    message += "<center><b>I'm hosted at: <a href=\"{0}\">{0}</a></center>".format(request.url)
+    
+    del_wh = request.args.get('delete')
+    delete_only = del_wh is not None
+    logger.debug(f"delete webhook: {del_wh}")
+    res = asyncio.run(manage_webhooks(request.url, delete = delete_only))
+    if res is True:
+        if delete_only:
+            message += "<center><b>Webhooks deleted sucessfully</center>"
+        else:
+            message += "<center><b>New webhook created sucessfully</center>"
+    else:
+        message += "<center><b>Tried to create a new webhook but failed, see application log for details.</center>"
+
+    return message
+        
+# @task
+def handle_webhook_event(webhook):
+    """
+    handle "messages" and "membership" events
+    
+    Messages are replicated to target Spaces based on the Bot configuration.
+    Membership checks the Bot configuration and eventualy posts a message and removes the Bot from the Space.
+    """
+    action_list = []
+
+    # make sure Bot object is initialized
+    bot = init_bot()
+    activity = create_activity(bot.teams, webhook)    
+    logger.debug(f"activity={activity}")
+    if activity['verb'] == 'post':
+        logger.debug(f"message received")        
+        message_id = webhook["data"]["id"]
+        webex_message = bot.teams.messages.get(message_id)
+        logger.debug(f"processing message {message_id}")
+        bot.process_incoming_message(teams_message=webex_message, activity=activity)
+    elif activity['verb'] == 'cardAction':
+        logger.debug(f"card action")
+        message_id = webhook["data"]["id"]
+        attachment_actions = bot.teams.attachment_actions.get(message_id)
+        logger.debug(f"processing attachement data: {attachment_actions}")
+        bot.process_incoming_card_action(attachment_actions=attachment_actions, activity=activity)
+
+
+        """"
+        if msg['data']['eventType'] == 'conversation.activity':
+            activity = msg['data']['activity']
+            if activity['verb'] == 'post':
+                logger.debug(f"activity={activity}")
+
+                message_base_64_id = self._get_base64_message_id(activity)
+                webex_message = self.teams.messages.get(message_base_64_id)
+                logger.debug(f"webex_message from message_base_64_id: {webex_message}")
+                if self.on_message:
+                    # ack message first
+                    self._ack_message(message_base_64_id)
+                    # Now process it with the handler
+                    self.on_message(teams_message=webex_message, activity=activity)
+            elif activity['verb'] == 'cardAction':
+                logger.debug(f"activity={activity}")
+
+                message_base_64_id = self._get_base64_message_id(activity)
+                attachment_actions = self.teams.attachment_actions.get(message_base_64_id)
+                logger.info(f"attachment_actions from message_base_64_id: {attachment_actions}")
+                if self.on_card_action:
+                    # ack message first
+                    self._ack_message(message_base_64_id)
+                    # Now process it with the handler
+                    self.on_card_action(attachment_actions=attachment_actions, activity=activity)
+            else:
+                logger.debug(f"activity verb is: {activity['verb']} ")
+            """
+
+def create_activity(webex_api, webhook):
+    
+    logger.debug(f"create activity from webhook: {webhook}")
+    actor_info = webex_api.people.get(webhook["actorId"])
+    
+    room_type = webhook["data"].get("roomType")
+    if room_type is None:
+        room_info = webex_api.rooms.get(webhook["data"]["roomId"])
+        logger.debug(f"room info: {room_info}")
+        room_type = room_info.type
+    
+    activity = {
+        'verb': None,
+        'actor': actor_info.to_dict(), #{'id': 'jmartan@cisco.com', 'objectType': 'person', 'displayName': 'Jaroslav Martan', 'orgId': '1eb65fdf-9643-417f-9974-ad72cae0e10f', 'emailAddress': 'jmartan@cisco.com', 'entryUUID': '631e8442-6a57-45e0-b227-cad5cad2d91d', 'type': 'PERSON'},
+        'target': {'tags': ["ONE_ON_ONE" if room_type == "direct" else "LOCKED"]}
+    }
+    activity["actor"]["objectType"] = activity["actor"]["type"]
+    activity["actor"]["type"] = activity["actor"]["type"].upper()
+    activity["actor"]["emailAddress"] = activity["actor"]["emails"][0]
+    activity["actor"]["entryUUID"] = get_person_uuid(actor_info.id)
+    
+    if webhook["resource"] == "messages" and webhook["event"] == "created":
+        activity["verb"] = "post"
+    elif webhook["resource"] == "attachmentActions" and webhook["event"] == "created":
+        activity["verb"] = "cardAction"
+        
+    logger.debug(f"activity created: {activity}")
+    return activity
                 
+async def manage_webhooks(target_url, delete = False):
+    """
+    create a set of webhooks for the Bot
+    webhooks are defined according to the resource_events dict
+    
+    Args:
+        target_url: full URL to be set for the webhook
+    """
+    myUrlParts = urlparse(target_url)
+    if os.getenv("SECURE_WEBHOOK_URL", None) is not None:
+        target_url = secure_scheme(myUrlParts.scheme) + "://" + myUrlParts.netloc + url_for("webex_webhook")
+    else:
+        target_url = myUrlParts.scheme + "://" + myUrlParts.netloc + url_for("webex_webhook")
+
+    logger.debug("Create new webhook to URL: {}".format(target_url))
+    
+    resource_events = {
+        # "all": ["all"],
+        "messages": ["created"],
+        "memberships": ["created", "deleted", "updated"],
+        "rooms": ["updated"],
+        "attachmentActions": ["created"]
+    }
+    status = None
+        
+    try:
+        check_webhook = webex_api.webhooks.list()
+    except ApiError as e:
+        logger.error("Webhook list failed: {}.".format(e))
+
+    local_loop = asyncio.get_event_loop()
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        wh_task_list = []
+        for webhook in check_webhook:
+            wh_task_list.append(local_loop.run_in_executor(executor, delete_webhook, webhook))
+            
+        await asyncio.gather(*wh_task_list)
+        
+        if not delete:
+            wh_task_list = []
+            for resource, events in resource_events.items():
+                for event in events:
+                    wh_task_list.append(local_loop.run_in_executor(executor, create_webhook, resource, event, target_url))
+                    
+            result = True
+            for status in await asyncio.gather(*wh_task_list):
+                if not status:
+                    result = False
+        else:
+            result = True
+                
+    return result
+    
+def delete_webhook(webhook):
+    logger.debug(f"Deleting webhook {webhook.id}, '{webhook.id}', App Id: {webhook.appId}")
+    try:
+        if not flask_app.testing:
+            logger.debug(f"Start webhook {webhook.id} delete")
+            webex_api.webhooks.delete(webhook.id)
+            logger.debug(f"Webhook {webhook.id} deleted")
+    except ApiError as e:
+        logger.error("Webhook {} delete failed: {}.".format(webhook.id, e))
+
+def create_webhook(resource, event, target_url):
+    logger.debug(f"Creating for {resource,event}")
+    status = False
+    try:
+        if not flask_app.testing:
+            result = webex_api.webhooks.create(name="Webhook for event \"{}\" on resource \"{}\"".format(event, resource), targetUrl=target_url, resource=resource, event=event)
+        status = True
+        logger.debug(f"Webhook for {resource}/{event} was successfully created with id: {result.id}")
+    except ApiError as e:
+        logger.error("Webhook create failed: {}.".format(e))
+        
+    return status
+    
+def secure_scheme(scheme):
+    return re.sub(r"^http$", "https", scheme)
+
+def get_bot_info():
+    """
+    get People info of the Bot
+    
+    Returns:
+        People object of the Bot itself
+    """
+    try:
+        me = webex_api.people.me()
+        if me.avatar is None:
+            me.avatar = DEFAULT_AVATAR_URL
+            
+        # logger.debug("Bot info: {}".format(me))
+        
+        return me
+    except ApiError as e:
+        logger.error("Get bot info error, code: {}, {}".format(e.status_code, e.message))
+                            
 """
 Independent thread startup, see:
 https://networklore.com/start-task-with-flask/
 """
-async def start_runner():
-    async def start_loop():
+def start_runner(config_file = None):
+    def start_loop():
         no_proxies = {
           "http": None,
           "https": None,
@@ -782,7 +1064,7 @@ async def start_runner():
         while not_started:
             logger.info("In start loop")
             try:
-                r = requests.get("http://127.0.0.1:5050/webex/authdone", proxies=no_proxies, verify=False)
+                r = requests.get("http://127.0.0.1:5050/startup" + (f"?config_file={config_file}" if config_file is not None else ""), proxies=no_proxies, verify=False)
                 if r.status_code == 200:
                     logger.info("Server started, quiting start_loop")
                     not_started = False
@@ -793,18 +1075,110 @@ async def start_runner():
             time.sleep(2)
 
     logger.info("Started runner")
-    await start_loop()
+    start_loop()
+    
+@flask_app.route("/startup", methods=["GET"])
+def startup():
+    flask_app.logger.info(f"in startup")
+            
+    return "OK"
+    
+@flask_app.before_first_request
+def init_app(log_level = logging.DEBUG, config_file = CFG_FILE_PATH):
+    global audit_logger, logger
+    
+    dir_path = os.path.dirname(os.path.realpath(__file__))
 
+    flask_app.logger.info(f"init app, log level: {log_level}, path: {dir_path}")
+
+    if config_file is not None:
+        config = load_config(config_file)
+    else:
+        config = load_config(f"{dir_path}/{DEFAULT_CONFIG_FILE}")
+
+    """
+    log_config = {
+        "version":1,
+        "root":{
+            "handlers" : ["console"],
+            "level": log_level
+        },
+        "handlers":{
+            "console":{
+                "formatter": "std_out",
+                "class": "logging.StreamHandler",
+                "level": log_level
+            }
+        },
+        "formatters":{
+            "std_out": {
+                # "format": "%(asctime)s : %(levelname)s : %(module)s : %(funcName)s : %(lineno)d : (Process Details : (%(process)d, %(processName)s), Thread Details : (%(thread)d, %(threadName)s))\nLog : %(message)s",
+                "format": LOG_FORMAT,
+                # "datefmt":"%d-%m-%Y %I:%M:%S.%f"
+            }
+        },
+    }
+    
+    if "log_file" in config.keys():
+        log_config["handlers"]["file"] = {
+            "formatter": "std_out",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "backupCount": 6, 
+            "when": "D",
+            "interval": 7,
+            "atTime": "midnight",
+            "filename": config["log_file"],
+            "level": log_level
+        }
+        log_config["root"]["handlers"].append("file")
+
+    logging_config.dictConfig(log_config)
+    """
+    
+    if "audit_log_file" in config.keys():
+        audit_logger = setup_logger("audit", config["audit_log_file"])
+        
+    if "log_file" in config.keys():
+        logger = setup_logger(__name__, config["log_file"], level = log_level, log_to_stdout = False)
+
+
+    loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+    for lgr in loggers:
+        # logger.info(f"setting {lgr} to {log_level}")
+        lgr.setLevel(log_level)
+    logger.info(f"Logging level: {logging.getLogger(__name__).getEffectiveLevel()}")
+    
+    logger.info("CONFIG: {}".format(config))
+    
+    oauth.webex_scope = oauth.WBX_MEETINGS_RECORDING_READ_SCOPE
+    oauth.webex_token_storage_path = config["token_storage_path"]
+    oauth.webex_token_key = "recording_bot"
+    
+def init_bot(config_file = CFG_FILE_PATH, mode = BotMode.WEBHOOK):
+    
+    logger.debug(f"init bot in mode {mode} and config at {config_file}")
+    # Create a Bot Object
+    try:
+        bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"), config_file = config_file, mode = mode)
+
+        # Add new commands for the bot to listen out for.
+        bot.add_command(RecordingCommand(bot))
+        
+        return bot
+    except Exception as e:
+        logging.error(f"init bot exception: {e}")
+    
 if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser()
     parser.add_argument("-v", "--verbose", action="count", help="Set logging level by number of -v's, -v=WARN, -vv=INFO, -vvv=DEBUG")
-    parser.add_argument("-l", "--language", default = "en_US", help="Language (see localization_strings.LANGUAGE), default: cs_CZ")
+    parser.add_argument("-l", "--language", default = "en_US", help="Language (see localization_strings.LANGUAGE), default: en_US")
     parser.add_argument("-c", "--config", default = CONFIG_FILE, help=f"Configuration file, default: {CONFIG_FILE}")
-    parser.add_argument("-m", "--mode", default = "webhook", help="Application mode [websocket, webhook], default: webhook")
+    parser.add_argument("-m", "--mode", default = "websocket", help="Application mode [websocket, webhook], default: websocket")
 
     args = parser.parse_args()
+
     log_level = logging.INFO
     if args.verbose:
         if args.verbose > 2:
@@ -814,31 +1188,37 @@ if __name__ == "__main__":
         elif args.verbose > 0:
             log_level=logging.WARN
             
-    loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
-    for lgr in loggers:
-        # logger.info(f"setting {lgr} to {log_level}")
-        lgr.setLevel(log_level)
-    logger.info(f"Logging level: {logging.getLogger(__name__).getEffectiveLevel()}")
-    
     locale_strings = localization_strings.LOCALES[args.language]
     
     config = load_config(cfg_file = args.config)
-    logger.info("CONFIG: {}".format(config))
+    logger.info(f"log level: {log_level}, debug: {logging.DEBUG} CONFIG: {config}")
     
+    init_app(log_level = log_level, config_file = args.config)
+    
+    app_mode = BotMode.WEBSOCKET
+    if args.mode.lower() == "webhook":
+        app_mode = BotMode.WEBHOOK
+    elif not args.mode.lower() in ("websocket", "webhook"):
+        logger.error(f"Invalid application mode \"{args.mode}\"")
+        sys.exit(1)
+    
+    bot = init_bot(config_file = args.config, mode = app_mode)
+
     # threading.Thread(target=lambda: flask_app.run(host="0.0.0.0", port=5050, ssl_context="adhoc", debug=True, use_reloader=False)).start()
     # threading.Thread(target=lambda: flask_app.run(host="0.0.0.0", port=5050, debug=True, use_reloader=False)).start()
     _thread.start_new_thread(flask_app.run, (), {"host": "0.0.0.0", "port":5050, "debug": True, "use_reloader": False})
     # flask_app.run(host="0.0.0.0", port=5050, ssl_context="adhoc")
     
-    loop = asyncio.get_event_loop()    
-    loop.run_until_complete(start_runner())
+    # loop = asyncio.get_event_loop()    
+    # loop.run_until_complete(start_runner(args.config))
+    start_runner(args.config)
     
-    # Create a Bot Object
-    bot = WebexBotShare(teams_bot_token=os.getenv("BOT_ACCESS_TOKEN"), config_file = args.config)
+    if app_mode is BotMode.WEBSOCKET:
+        # Call `run` for the bot to wait for incoming messages.
+        bot.run()
+    elif app_mode is BotMode.WEBHOOK:
+        while True:
+            time.sleep(20)
+        # flask_app.run(host="0.0.0.0", port=5050, debug=True, use_reloader=False, threaded=True, ssl_context="adhoc")
 
-    # Add new commands for the bot to listen out for.
-    bot.add_command(RecordingCommand(bot))
-
-    # Call `run` for the bot to wait for incoming messages.
-    bot.run()
-    loop.close()
+    # loop.close()

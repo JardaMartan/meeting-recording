@@ -4,7 +4,6 @@ from webexteamssdk import WebexTeamsAPI, AccessToken, ApiError
 import json
 
 import logging
-logger = logging.getLogger(__name__)
 
 WEBEX_TOKEN_FILE = "webex_tokens_{}.json"
 
@@ -44,14 +43,14 @@ class AccessTokenAbs(AccessToken):
             self._save_tokens()
 
 
-        logger.info(f"Token data: {self._json_data}")
+        logging.info(f"Token data: {self._json_data}")
         
     @property
     def access_token(self):
         exp = datetime.fromtimestamp(self.expires_at)
         diff_sec = (exp - datetime.utcnow()).total_seconds()
         if diff_sec < TOKEN_REFRESH_TIME_MARGIN:
-            logger.info(f"Access Token expiring in {diff_sec} sec. Attempting refresh.")
+            logging.info(f"Access Token expiring in {diff_sec} sec. Attempting refresh.")
             self.refresh_tokens()
             if not self._token_refreshed:
                 return None
@@ -83,10 +82,10 @@ class AccessTokenAbs(AccessToken):
     def _set_tokens_expiration(self):
         if not "expires_at" in self._json_data.keys():
             self._json_data["expires_at"] = (datetime.now(timezone.utc) + timedelta(seconds = self.expires_in)).timestamp()
-        logger.debug(f"Access Token expires in: {self.expires_in} seconds, at: {self.expires_at}")
+        logging.debug(f"Access Token expires in: {self.expires_in} seconds, at: {self.expires_at}")
         if not "refresh_token_expires_at" in self._json_data.keys():
             self._json_data["refresh_token_expires_at"] = (datetime.now(timezone.utc) + timedelta(seconds = self.refresh_token_expires_in)).timestamp()
-        logger.debug(f"Refresh Token expires in: {self.refresh_token_expires_in} seconds, at: {self.refresh_token_expires_at}")
+        logging.debug(f"Refresh Token expires in: {self.refresh_token_expires_in} seconds, at: {self.refresh_token_expires_at}")
 
     def _save_tokens(self):
         """
@@ -94,18 +93,21 @@ class AccessTokenAbs(AccessToken):
         
         Parameters:
         """        
-        logger.debug(f"AT timestamp: {self.expires_at}")
+        logging.debug(f"AT timestamp: {self.expires_at}")
         file_destination = self._get_webex_token_file()
         try:
             with open(file_destination, "w") as file:
-                logger.debug(f"Saving Webex tokens to: {file_destination}")
+                logging.debug(f"Saving Webex tokens to: {file_destination}")
                 json.dump(self._json_data, file)
         except Exception as e:
-            logger.info(f"Webex token save exception: {e}")
+            logging.info(f"Webex token save exception: {e}")
 
         # self._token_refreshed = True # indicate that the Webex token has been refreshed
 
     def _get_webex_token_file(self):
+        if len(self.token_storage_path) > 0:
+            if self.token_storage_path[-1] != "/":
+                self.token_storage_path += "/"
         return self.token_storage_path + WEBEX_TOKEN_FILE.format(self.storage_key)
 
     def _load_tokens(self):
@@ -120,11 +122,11 @@ class AccessTokenAbs(AccessToken):
         try:
             file_source = self._get_webex_token_file()
             with open(file_source, "r") as file:
-                logger.debug(f"Loading Webex tokens from: {file_source}")
+                logging.debug(f"Loading Webex tokens from: {file_source}")
                 access_token_json = json.load(file)
                 return access_token_json
         except Exception as e:
-            logger.info(f"Webex token load exception: {e}")
+            logging.info(f"Webex token load exception: {e}")
 
     def refresh_tokens(self):
         """
@@ -146,6 +148,6 @@ class AccessTokenAbs(AccessToken):
             self._save_tokens()
             
             self._token_refreshed = True
-            logger.info(f"Tokens refreshed for key {self.storage_key}")
+            logging.info(f"Tokens refreshed for key {self.storage_key}")
         except ApiError as e:
-            logger.error(f"Error refreshing an access token. Client Id and Secret loading error: {e}")
+            logging.error(f"Error refreshing an access token. Client Id and Secret loading error: {e}")

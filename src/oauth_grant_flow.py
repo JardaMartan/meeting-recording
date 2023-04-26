@@ -6,8 +6,6 @@ from webex_access_token import AccessTokenAbs
 
 from urllib.parse import urlparse, quote
 
-logger = logging.getLogger(__name__)
-
 webex_scope = []
 webex_integration_client_id = os.getenv("WEBEX_INTEGRATION_CLIENT_ID")
 webex_integration_secret = os.getenv("WEBEX_INTEGRATION_CLIENT_SECRET")
@@ -56,18 +54,18 @@ def authorize():
     
     myUrlParts = urlparse(request.url)
     full_redirect_uri = myUrlParts.scheme + "://" + myUrlParts.netloc + url_for("webex_oauth.redirect_uri")
-    logger.info(f"Authorize redirect URL: {full_redirect_uri}")
+    logging.info(f"Authorize redirect URL: {full_redirect_uri}")
     
 
     if webex_integration_client_id is None:
         webex_integration_client_id = os.getenv("WEBEX_INTEGRATION_CLIENT_ID")
-    logger.debug(f"Webex client ID: {webex_integration_client_id}")
+    logging.debug(f"Webex client ID: {webex_integration_client_id}")
     redirect_uri = quote(full_redirect_uri, safe="")
     scope = webex_scope + WBX_DEFAULT_SCOPE
     scope_uri = quote(" ".join(scope), safe="")
     temp_webex_api = WebexTeamsAPI(access_token="12345")
     join_url = temp_webex_api.base_url+f"authorize?client_id={webex_integration_client_id}&response_type=code&redirect_uri={redirect_uri}&scope={scope_uri}&state={webex_state_check}"
-    logger.debug(f"Redirect to: {join_url}")
+    logging.debug(f"Redirect to: {join_url}")
 
     return redirect(join_url)
 
@@ -88,11 +86,11 @@ def redirect_uri():
         
     input_code = request.args.get("code")
     check_phrase = request.args.get("state")
-    logger.debug(f"Authorization request \"state\": {check_phrase}, code: {input_code}")
+    logging.debug(f"Authorization request \"state\": {check_phrase}, code: {input_code}")
 
     myUrlParts = urlparse(request.url)
     full_redirect_uri = myUrlParts.scheme + "://" + myUrlParts.netloc + url_for("webex_oauth.redirect_uri")
-    logger.debug(f"Redirect URI: {full_redirect_uri}")
+    logging.debug(f"Redirect URI: {full_redirect_uri}")
     
     temp_webex_api = WebexTeamsAPI(access_token="12345")
     try:
@@ -105,20 +103,20 @@ def redirect_uri():
             token_storage_path = webex_token_storage_path,
             client_id = webex_integration_client_id, 
             client_secret = webex_integration_secret)
-        logger.debug(f"Access info: {tokens}")
+        logging.debug(f"Access info: {tokens}")
     except ApiError as e:
-        logger.error(f"Client Id and Secret loading error: {e}")
+        logging.error(f"Client Id and Secret loading error: {e}")
         return f"Error issuing an access token. Client Id and Secret loading error: {e}"
         
     webex_integration_api = WebexTeamsAPI(access_token=tokens.access_token)
     """
     try:
         user_info = webex_integration_api.people.me()
-        logger.debug(f"Got user info: {user_info}")
+        logging.debug(f"Got user info: {user_info}")
         
         ## TODO: add periodic access token refresh
     except ApiError as e:
-        logger.error(f"Error getting user information: {e}")
+        logging.error(f"Error getting user information: {e}")
         return f"Error getting your user information: {e}"
     """
         
@@ -145,7 +143,7 @@ def access_token_obj(storage_key = None,
         at = AccessTokenAbs(storage_key = storage_key, token_storage_path = token_storage_path, client_id = client_id, client_secret = client_secret)
         return at
     except Exception as e:
-        logger.info(f"Access Token creation exception: {e}")
+        logging.info(f"Access Token creation exception: {e}")
         
 def access_token(storage_key = None,
         token_storage_path = None,
@@ -160,4 +158,4 @@ def access_token(storage_key = None,
         return at.access_token
     
 def show_config():
-    logger.info(f"key: {webex_token_key}, path: {webex_token_storage_path}")
+    logging.info(f"key: {webex_token_key}, path: {webex_token_storage_path}")

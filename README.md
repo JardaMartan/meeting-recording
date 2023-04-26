@@ -26,7 +26,10 @@ The integration uses following scopes to access the recording and user informati
 `meeting:admin_preferences_read`  
 `spark-compliance:meetings_read`  
 `spark:people_read`  
-The Bot works as a user front-end. The Bot uses websockets for its communication and is based on [Webex Bot](https://pypi.org/project/webex-bot/) by [Finbarr Brady](mailto:finbarr.brady@gmail.com). The advantage of this approach is that there is no need for [Webhooks](https://developer.webex.com/docs/webhooks) or any special firewall setup. From the network perspective the Bot works as a Webex App. The Webex API calls are performed via standard HTTPS using [Webex Teams SDK](https://webexteamssdk.readthedocs.io/en/latest/index.html).
+The Bot works as a user front-end. The Bot uses either websockets or [webhooks](https://developer.webex.com/docs/webhooks) for its communication. Websocket implementation is based on [Webex Bot](https://pypi.org/project/webex-bot/) by [Finbarr Brady](mailto:finbarr.brady@gmail.com). Webhook is implemented using [Flask](https://flask.palletsprojects.com/en/2.2.x/).  
+The advantage of websockets is that there is no need for or any special firewall setup and publicly accessible URLs. From the network perspective the Bot works as a Webex App. The Webex API calls are performed via standard HTTPS using [Webex Teams SDK](https://webexteamssdk.readthedocs.io/en/latest/index.html).  
+Webhook on the other hand provides higher scalability and flexibility of execution environment. Webhook can be hosted at
+various cloud services as a docker image or a server-less function.
 
 ### 1. Space Meeting Forwarding
 Space meeting recording is sent to a Space as a special kind of message which provides an integrated playback client.  
@@ -48,7 +51,13 @@ A 1-1 message to the Bot in the format `rec <meeting_num> <host_email> <days_bac
 
 ---
 ## How to Install
-The Bot is written in Python and is provided for [Docker Compose](https://docs.docker.com/compose/). Following steps are needed to get it running in a Docker environment. The Docker image can be either built locally (follow all steps in this section) or used from Docker Hub. Docker Hub approach is easier mainly due to an simpler update process.
+The Bot is written in Python and can be run:
+1. as a Docker image (webhook or websocket mode) - [Docker Compose](https://docs.docker.com/compose/) example provided
+2. as a server-less function (webhook mode) - Amazon Lambda or Azure Function to name a few
+3. locally in a Python virtual environment (websocket mode; webhook only if public URL can be provided, e.g. via some port forwarding like NGROK or SSH)
+
+## 1. Running as Docker image
+Following steps are needed to get it running as Docker image. The Docker image can be either built locally (follow all steps in this section) or used from Docker Hub. Docker Hub approach is easier mainly due to an simpler update process.
 
 ### Docker Hub image
 To use the Docker Hub image, follow the configuration steps 1 - 4, but first copy `docker-compose-dockerhub.yml` to `docker-compose.yml`. After configuration is complete, run  
@@ -124,3 +133,9 @@ Docker Hub image gets updated using `pull` command, so this sequence is needed:
 `docker-compose down`  
 `docker-compose pull`  
 `docker-compose up -d`  
+
+## 3. Running locally
+
+### 1. Create virtual environment
+
+### 2. Run 
