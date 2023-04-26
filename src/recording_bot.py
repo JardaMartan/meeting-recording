@@ -86,7 +86,7 @@ import re
 import base64
 from dateutil import parser as date_parser
 from datetime import datetime, timedelta
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote
 import concurrent.futures
 
 try:
@@ -243,7 +243,18 @@ def get_recording_details(meeting_id, host_email):
 def get_recording_urls(recording_details):
     url_list = recording_details.get("temporaryDirectDownloadLinks")
     if url_list:
-        return url_list.get("audioDownloadLink"), url_list.get("recordingDownloadLink"), url_list.get("expiration")
+        return fix_url(url_list.get("audioDownloadLink"), f"{recording_details['topic']}.mp3"), fix_url(url_list.get("recordingDownloadLink"), f"{recording_details['topic']}.mp4"), url_list.get("expiration")
+    
+def fix_url(url, add_filename):
+    parsed_url = urlparse(url)
+    logger.debug(f"path found in URL: {parsed_url.path}")
+    url_base = os.path.basename(parsed_url.path)
+    if not url_base.endswith((".mp4", ".mp3")):
+        new_path = parsed_url.path + "/" + quote(add_filename)
+        logger.info(f"fix URL path '{parsed_url.path}' to '{new_path}'")
+        return parsed_url._replace(path = new_path).geturl()
+    
+    return url
         
 def meeting_is_pmr(meeting_num, host_email):
     try:
