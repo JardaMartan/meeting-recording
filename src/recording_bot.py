@@ -520,16 +520,16 @@ class RecordingHelpCommand(HelpCommand):
                     if command.command_keyword == "rec":
                         card_columns = []
                         rec_input = Text("meeting_number", placeholder=locale_strings["loc_meeting_no"])
-                        rec_column = Column(items = [TextBlock(locale_strings["loc_meeting_no"]), rec_input])
+                        rec_column = Column(items = [TextBlock(locale_strings["loc_meeting_no"]), rec_input], width = 40)
                         card_columns.append(rec_column)
                         
                         if not self.bot.respond_only_to_host:
                             rec_host_input = Text("meeting_host", placeholder="user@domain")
-                            host_column = Column(items = [TextBlock(locale_strings["loc_meeting_host"]), rec_host_input])
+                            host_column = Column(items = [TextBlock(locale_strings["loc_meeting_host"]), rec_host_input], width = 40)
                             card_columns.append(host_column)
 
                         rec_history_input = Text("days_back", placeholder=f"{MEETING_REC_RANGE}")
-                        history_column = Column(items = [TextBlock(locale_strings["loc_days"]), rec_history_input], width="auto")
+                        history_column = Column(items = [TextBlock(locale_strings["loc_days"]), rec_history_input], width = 20)
                         card_columns.append(history_column)
                         
                         rec_submit = Submit(title=locale_strings["loc_submit"], data={COMMAND_KEYWORD_KEY: command.command_keyword})
